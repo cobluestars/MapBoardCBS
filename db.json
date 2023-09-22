@@ -1,0 +1,79 @@
+{
+  "markers": [
+    {
+      "id": "08df1839-b398-43a0-a3e9-ef881a7715f9",
+      "position": {
+        "lat": 37.569102314395614,
+        "lng": 126.97192788425583
+      },
+      "data": {
+        "title": "11111",
+        "content": "111111",
+        "category": "알바",
+        "startDate": "2023-09-22T11:29",
+        "endDate": "2023-09-23T11:29",
+        "mode": "view"
+      }
+    },
+    {
+      "id": "4bc6c4d9-1c7a-4d58-a8a7-369091a92bc4",
+      "position": {
+        "lat": 37.56910138536469,
+        "lng": 126.96826039865249
+      },
+      "data": {
+        "title": "222",
+        "content": "222",
+        "category": "프리랜서",
+        "startDate": "2023-09-22T13:08",
+        "endDate": "2023-09-23T13:08",
+        "mode": "view"
+      }
+    },
+    {
+      "id": "4f01036d-f7f0-4418-a6c5-f46e21c2443f",
+      "position": {
+        "lat": 37.56596612488156,
+        "lng": 126.96903141595905
+      },
+      "data": {
+        "title": "33",
+        "content": "333",
+        "category": "직거래",
+        "startDate": "2023-09-22T13:09",
+        "endDate": "2023-09-23T13:10",
+        "mode": "view"
+      }
+    },
+    {
+      "id": "c6e7f980-e9f1-49a2-addf-65348b7a5b21",
+      "position": {
+        "lat": 37.571552153043164,
+        "lng": 126.9684857540823
+      },
+      "data": {
+        "title": "44",
+        "content": "4",
+        "category": "심부름",
+        "startDate": "2023-09-22T13:30",
+        "endDate": "2023-09-23T13:30",
+        "mode": "view"
+      }
+    },
+    {
+      "id": "55e29a62-252b-4071-8f8f-a0914f067819",
+      "position": {
+        "lat": 37.56892043786468,
+        "lng": 126.96558910326144
+      },
+      "data": {
+        "title": "5",
+        "content": "55",
+        "category": "과외",
+        "startDate": "2023-09-22T13:34",
+        "endDate": "2023-09-23T13:34",
+        "mode": "view"
+      }
+    }
+  ]
+}
