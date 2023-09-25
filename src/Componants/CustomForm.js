@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const CustomForm = ({ style, data, registerHandler, onClose }) => {
+const CustomForm = ({ style, data, registerHandler, onClose, onDelete, markerId }) => {
 
   const initialState = {
     title: "",
@@ -103,6 +103,7 @@ const CustomForm = ({ style, data, registerHandler, onClose }) => {
           </div>
           <button onClick={handleEdit}>수정</button>
           <button onClick={handleClose}>닫기</button>
+          <button onClick={() => onDelete(markerId)}>삭제</button>
         </>
       ) : (
         // Edit 또는 Register 모드에서는 입력 폼 표시

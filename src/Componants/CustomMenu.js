@@ -25,7 +25,8 @@ const actionTypes = {
     ADD_MARKER: "ADD_MARKER",
     TOGGLE_FORM: "TOGGLE_FORM",
     CLEAR_TEMP_MARKER: "CLEAR_TEMP_MARKER",
-    UPDATE_TEMP_MARKER_POSITION: "UPDATE_TEMP_MARKER_POSITION"
+    UPDATE_TEMP_MARKER_POSITION: "UPDATE_TEMP_MARKER_POSITION",
+    REMOVE_MARKER: "REMOVE_MARKER"
 };
 
 // 리듀서 함수
@@ -48,6 +49,10 @@ function reducer(state, action) {
             return { ...state, tempMarker: null };
         case actionTypes.UPDATE_TEMP_MARKER_POSITION:
             return { ...state, tempMarker: action.payload };
+        case actionTypes.REMOVE_MARKER: {
+            const newMarkers = state.markers.filter(marker => marker.id !== action.payload);
+            return { ...state, markers: newMarkers };
+        };
         default:
             throw new Error(`Unknown action: ${action.type}`);    
     }
@@ -104,7 +109,10 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
     }, [location, mapRef]);
 
     const loadMarkers = () => {
+        // 기존 마커들을 모두 지우기
+        markersRef.current.forEach(markerRef => markerRef.markerObject.setMap(null));
         markersRef.current = [];
+
         fetch('http://localhost:5000/markers')
         .then(response => response.json())
         .then(data => {
@@ -154,6 +162,8 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                 return { id: markerData.id, markerObject: marker, data: markerData.data, position: markerData.position };
             });
     
+            markersRef.current = [...markersRef.current, ...newMarkers];
+
             dispatch({ type: actionTypes.SET_MARKERS, payload: [...markersRef.current, ...newMarkers] });
         })
         .catch(error => console.error('Error:', error));
@@ -230,9 +240,15 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
     
                 dispatch({ type: actionTypes.SET_MARKERS, payload: updatedMarkers });
                 setFormData({ ...formState, mode: 'view' }); // 여기서 formData 상태를 업데이트, 모드를 'view'로 변경
+
+                loadMarkers();
+
                 dispatch({ type: actionTypes.TOGGLE_FORM });
+
                 setEditing(false);
+
                 setEditingMarkerId(null);
+
                 return { mode: 'view' }; // 모드를 'view'로 변경
             } catch (error) {
                 console.error('Error:', error);
@@ -255,17 +271,59 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                 const data = await response.json();
                 console.log('Success:', data);
     
+                setEditingMarkerId(newMarker.id); // 서버에서 받은 새로운 마커의 id로 업데이트
+
                 localStorage.removeItem('tempMarkerPosition'); // 마커 등록이 성공한 후, Local Storage의 tempMarkerPosition 삭제
-    
+
                 setFormData({ ...formState, mode: 'view' }); // 여기서 formData 상태를 업데이트, 모드를 'view'로 변경
+
                 loadMarkers();
+
+                // 새로운 마커 목록을 사용하여 상태 업데이트
+                dispatch({ type: actionTypes.SET_MARKERS, payload: [...markersRef.current] });
+                
                 dispatch({ type: actionTypes.TOGGLE_FORM });
+                
                 return { mode: 'view' }; // 모드를 'view'로 변경
             } catch (error) {
                 console.error('Error:', error);
             }
         }
     }; 
+
+    const handleDelete = async (id) => {    //마커 삭제로 서버 업데이트
+        const isConfirmed = window.confirm('정말로 삭제하시겠습니까?');
+        if (!isConfirmed) return;
+        
+        try {
+            const response = await fetch(`http://localhost:5000/markers/${id}`, {
+                method: 'DELETE',
+            });
+            
+            if (!response.ok) throw new Error('마커 삭제 실패');
+
+            // 해당 ID를 가진 마커를 찾아 지도에서 직접 제거
+            const markerToDelete = markersRef.current.find(marker => marker.id === id);
+            if (markerToDelete) {
+                markerToDelete.markerObject.setMap(null); // 마커 객체를 지도상에서 제거
+            }
+
+            // markersRef.current 배열에서 해당 마커 제거
+            markersRef.current = markersRef.current.filter(marker => marker.id !== id);
+ 
+            // State에서 마커 데이터 제거
+            dispatch({ type: actionTypes.REMOVE_MARKER, payload: id });
+            
+            console.log('마커 삭제 성공');
+
+            loadMarkers();
+
+            handleClose(); // 폼 닫기
+        } catch (error) {
+            console.error('Error during deletion:', error);
+            alert('삭제 중 오류가 발생했습니다.');
+        }
+    };
     
     const placeMarker = (event) => {
     
@@ -273,12 +331,6 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
     
         if (state.tempMarker) {
             state.tempMarker.setMap(null);
-        }
-
-        // 임시 마커가 이미 있을 경우 제거
-        if (tempMarkerRef.current) {
-            tempMarkerRef.current.setMap(null);
-            tempMarkerRef.current = null;
         }
     
         const lat = event.latLng.getLat();
@@ -326,6 +378,15 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         // 이벤트 리스너 제거
         window.kakao.maps.event.removeListener(mapRef.current, 'click', placeMarker);
     };
+
+    useEffect(() => {
+        // 페이지 로드 시 임시 마커 삭제
+        localStorage.removeItem('tempMarkerPosition');
+        if(tempMarkerRef.current) {
+            tempMarkerRef.current.setMap(null);
+            tempMarkerRef.current = null;
+        }
+    }, []);
 
     const handlePlaceMarker = () => {
         if (mapRef && mapRef.current) {
@@ -437,6 +498,8 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                 data={formData}
                 formData={formState}
                 initialMode="register"
+                markerId={editingMarkerId}
+                onDelete={handleDelete}
             />
         }
          </div>
@@ -445,5 +508,5 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
 
 export default CustomMenu;
 
-//등록, 조회, 수정 모드 완료/ 집에서 다시 검토해보기
-//삭제 모드 구현하기
+//마커 배치 후 더블 클릭해야 등록 모드 활성화되는 문제
+//마커 등록 직후 뷰 모드에서는 삭제 기능이 작동 안 되는 문제
