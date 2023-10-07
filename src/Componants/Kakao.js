@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import './Kakao.css';
 import KakaoMap from './KakaoMap';
 import CustomMenu from './CustomMenu';
+import { useCallback } from 'react';
 
 function Kakao(props) {
     const [places, setPlaces] = useState([]);
@@ -17,8 +18,12 @@ function Kakao(props) {
 
     const markers = useRef([]).current;
 
+    // Kakao 컴포넌트
+    const kakaoMarkersRef = useRef([]);
+
     const markersRef = useRef([]);
     const infowindowsRef = useRef([]);
+    const [visibleMarkers, setVisibleMarkers] = useState([]);
 
     // Custom marker 등록을 위한 상태 추가
     const [customData, setCustomData] = useState({
@@ -29,35 +34,33 @@ function Kakao(props) {
         date: new Date(),
     });
 
-    // Custom marker
-    const [isSettingPin, setIsSettingPin] = useState(false);
+    const [isSettingPin, setIsSettingPin] = useState(false);  
 
     // Custom marker 설정 로직 추가
     function setCustomMarker(e) {
         if (!isSettingPin) return;
         
         // Kakao Map에서 LatLng를 가져올 때의 메서드 수정
-        const customMarkerPosition = new window.kakao.maps.LatLng(e.latLng.getLat(), e.latLng.getLng());
+        const kakaoMarkerPosition = new window.kakao.maps.LatLng(e.latLng.getLat(), e.latLng.getLng());
 
-        const marker = new window.kakao.maps.Marker({
+        const kakaoMarker = new window.kakao.maps.Marker({
             map: mapRef.current,
-            position: customMarkerPosition,
+            position: kakaoMarkerPosition,
             title: customData.title,
         });
         
-        markersRef.current.push(marker);
+        markersRef.current.push(kakaoMarker);
 
         const infowindow = new window.kakao.maps.InfoWindow({
             content: `<div style="padding:5px;z-index:1;">${customData.title}</div>`,
             zIndex: 1
         });
 
-        window.kakao.maps.event.addListener(marker, 'click', () => {
-            infowindow.open(mapRef.current, marker);
+        window.kakao.maps.event.addListener(kakaoMarker, 'click', () => {
+            infowindow.open(mapRef.current, kakaoMarker);
         });
 
         infowindowsRef.current.push(infowindow);
-
 
         setIsSettingPin(false);
         // 마커를 배치하면 바로 마커 모양의 마우스 포인터를 해제
@@ -114,69 +117,101 @@ function Kakao(props) {
 
     function displayPlaces(places) {
         const bounds = new window.kakao.maps.LatLngBounds();
-    
+        
         removeAllMarkers();
-    
-        // 마커 이미지의 이미지 주소
+        
         const imageSrc = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_number_blue.png";
         
         places.forEach((place, idx) => {
             const placePosition = new window.kakao.maps.LatLng(place.y, place.x);
-            const markerTitle = place.place_name;
-    
-            // 마커 이미지의 이미지 크기
-            const imageSize = new window.kakao.maps.Size(36, 37); 
-
-            const imgOptions =  {
-                spriteSize : new window.kakao.maps.Size(36, 691), // 스프라이트 이미지의 크기
-                spriteOrigin : new window.kakao.maps.Point(0, (idx*46)+10), // 스프라이트 이미지 중 사용할 영역의 좌상단 좌표
-                offset: new window.kakao.maps.Point(13, 37) // 마커 좌표에 일치시킬 이미지 내에서의 좌표
+            const kakaoMarkerTitle = place.place_name;
+            
+            const imageSize = new window.kakao.maps.Size(36, 37);
+            const imgOptions = {
+                spriteSize: new window.kakao.maps.Size(36, 691),
+                spriteOrigin: new window.kakao.maps.Point(0, (idx * 46) + 10),
+                offset: new window.kakao.maps.Point(13, 37)
             };
     
             // 마커 이미지를 생성   
-            const markerImage = new window.kakao.maps.MarkerImage(imageSrc, imageSize, imgOptions); 
-    
-            // 마커를 생성합니다
-            const marker = new window.kakao.maps.Marker({
+            const markerImage = new window.kakao.maps.MarkerImage(imageSrc, imageSize, imgOptions);
+            
+            // 마커 생성
+            const kakaoMarker = new window.kakao.maps.Marker({
                 map: mapRef.current,
                 position: placePosition,
-                title: markerTitle,
+                title: kakaoMarkerTitle,
                 image: markerImage
             });
     
-            markersRef.current.push(marker);
+            kakaoMarkersRef.current.push(kakaoMarker);
             bounds.extend(placePosition);
-
+    
             const infowindow = new window.kakao.maps.InfoWindow({
-                content: '<div style="padding:5px;z-index:1;">' + markerTitle + '</div>',
+                content: '<div style="padding:5px;z-index:1;">' + kakaoMarkerTitle + '</div>',
                 zIndex: 1
-            }); // infowindow 생성 시 내용도 함께 설정
-
-            window.kakao.maps.event.addListener(marker, 'mouseover', () => {
-                infowindow.setContent('<div style="padding:5px;z-index:1;">' + markerTitle + '</div>');
-                infowindow.open(mapRef.current, marker);
             });
     
-            window.kakao.maps.event.addListener(marker, 'mouseout', () => {
+            window.kakao.maps.event.addListener(kakaoMarker, 'mouseover', () => {
+                infowindow.open(mapRef.current, kakaoMarker);
+            });
+    
+            window.kakao.maps.event.addListener(kakaoMarker, 'mouseout', () => {
                 infowindow.close();
             });
-
+    
             infowindowsRef.current.push(infowindow);
         });
-
+    
         mapRef.current.setBounds(bounds);
-    }
+    } 
     
     function removeAllMarkers() {
-        markersRef.current.forEach(marker => marker.setMap(null));
-        markersRef.current = [];
-        infowindowsRef.current = [];
+        kakaoMarkersRef.current.forEach(kakaoMarker => {
+            if (kakaoMarker && typeof kakaoMarker.setMap === 'function') {
+                kakaoMarker.setMap(null);
+            }
+        });
+        kakaoMarkersRef.current = [];
     }
 
+    const handleMouseOver = useCallback((index) => {
+        try {
+            // console.log("infowindow: ", infowindowsRef.current[index]);
+            // console.log("mapRef.current: ", mapRef.current);
+            // console.log("kakaoMarkersRef length:", kakaoMarkersRef.current.length);  // 길이 출력
+            // console.log("current index:", index);  // 현재 인덱스 출력
+            // console.log("kakaoMarker: ", kakaoMarkersRef.current[index]);
+
+            const infowindow = infowindowsRef.current[index];
+            const kakaoMarker = kakaoMarkersRef.current[index];
+    
+            if (infowindow && mapRef.current && kakaoMarker) {
+                infowindow.open(mapRef.current, kakaoMarker);
+            } else {
+                console.error("One of the required objects (infowindow, map, kakaoMarker) is not initialized.");
+            }
+        } catch (error) {
+            console.error("Error occurred in onMouseOver:", error);
+        }
+    },  [infowindowsRef, mapRef, kakaoMarkersRef]);
 
     function handleMapInitialized(mapInstance) {
         mapRef.current = mapInstance;
     }
+
+    const handleMouseOut = useCallback((index) => {
+        try {
+            const infowindow = infowindowsRef.current[index];
+            
+            if (infowindow) {
+                // 마커 위의 인포윈도우를 제거
+                infowindow.close();
+            }
+        } catch (error) {
+            console.error("Error occurred in onMouseOut:", error);
+        }
+    }, [infowindowsRef]);
 
     return (
         <div className="map_wrap">
@@ -205,15 +240,8 @@ function Kakao(props) {
                         <li 
                             key={index} 
                             className="item"
-                            onMouseOver={() => {
-                                const infowindow = infowindowsRef.current[index];
-                                const marker = markersRef.current[index];
-                                infowindow.open(mapRef.current, marker);
-                            }}
-                            onMouseOut={() => {
-                                const infowindow = infowindowsRef.current[index];
-                                infowindow.close();
-                            }}
+                            onMouseOver={() => handleMouseOver(index)}
+                            onMouseOut={() => handleMouseOut(index)}
                         >
                             <span className={`markerbg marker_${index + 1}`}></span>
                             <div className="info">
@@ -241,6 +269,8 @@ function Kakao(props) {
                 infowindowsRef={infowindowsRef}
                 markersRef={markersRef}
                 mapRef={mapRef}
+                visibleMarkers={visibleMarkers}
+                setVisibleMarkers={setVisibleMarkers}
             />
 
         </div>
