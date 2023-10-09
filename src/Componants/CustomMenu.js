@@ -2,6 +2,14 @@ import React, { useEffect, useState, useRef, useReducer } from 'react';
 import './CustomMenu.css'
 import CustomForm from './CustomForm';
 import { v4 as uuidv4 } from 'uuid';
+
+//firestore
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, query, where, doc, getDoc, setDoc, deleteField } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
+
+//TempMarkers
+import { saveTempMarkerPosition, getTempMarkerPosition, deleteTempMarkerPosition } from './TempMarkers';
+
 import { getAuth } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -12,6 +20,8 @@ import heavyImage from '../icon/icons8-heavy-50.png';
 import teacherImage from '../icon/icons8-선생-50.png';
 import cleaningImage from '../icon/icons8-청소-50.png';
 import insuranceAgentImage from '../icon/icons8-insurance-agent-50.png';
+
+const db = getFirestore();
 
 // 초기 상태 정의
 const initialState = {
@@ -139,22 +149,35 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
     }, [location, mapRef]);
 
     useEffect(() => {
-        // localStorage에서 editingMarkerId 값을 가져옴
-        const storedEditingMarkerId = localStorage.getItem("editingMarkerId");
-        if (storedEditingMarkerId) {
-            setEditingMarkerId(storedEditingMarkerId);
+         // firestore에서 editingMarkerId 값을 가져오기
+        async function fetchStoredEditingMarkerId() {
+            const userSettingsRef = doc(db, 'userSettings', 'currentUserId');
+            const userSettingsSnapshot = await getDoc(userSettingsRef);
+    
+            if (userSettingsSnapshot.exists() && userSettingsSnapshot.data().editingMarkerId) {
+                const storedEditingMarkerId = userSettingsSnapshot.data().editingMarkerId;
+                setEditingMarkerId(storedEditingMarkerId);
+            }
         }
-    }, []);
+    
+        fetchStoredEditingMarkerId();
+    }, []);    
 
     useEffect(() => {
-        // editingMarkerId 값이 변경될 때마다 localStorage에 저장
-        if (editingMarkerId) {
-            localStorage.setItem("editingMarkerId", editingMarkerId);
-        } else {
-            localStorage.removeItem("editingMarkerId");
+        //Firestore에 editingMarkerId 저장하기
+        async function storeEditingMarkerId() {
+            const userSettingsRef = doc(db, 'userSettings', 'currentUserId');
+    
+            if (editingMarkerId) {
+                await setDoc(userSettingsRef, { editingMarkerId: editingMarkerId }, { merge: true });
+            } else {
+                await setDoc(userSettingsRef, { editingMarkerId: deleteField() }, { merge: true });
+            }
         }
-    }, [editingMarkerId]);  
-
+    
+        storeEditingMarkerId();
+    }, [editingMarkerId]);
+    
     let prevClickedMarker = null; // 이전에 클릭된 마커를 저장하기 위한 전역 변수
 
     const clickedMarkerImageSrc = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png";
@@ -251,21 +274,33 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         });
         markersRef.current = [];
         
-        await fetch('http://localhost:5000/markers')
-        .then(response => response.json())
-        .then(data => {
-            const newMarkers = data.map(markerData => {
-                if (!markerData.position) {
-                    console.error('Position data is missing', markerData);
+        try {
+            const markersCollection = collection(db, 'markers');
+            const markerSnapshot = await getDocs(markersCollection);
+            const markersData = markerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            const newMarkers = markersData.map(markerData => {
+                if (markerData.id === 'TEMP_MARKER') {  //임시마커는 데이터를 등록하기 이전 단계이므로 예외 처리
                     return {};
                 }
 
-                const { position, data } = markerData;
-
+                if (!markerData.position || !markerData.data || !markerData.data.category) {
+                    console.error('Position, Data, or Category is missing', markerData);
+                    return {};
+                }
+                            
+                const { position } = markerData;
+                const data = markerData.data || {};
+                
                 let customOverlay;  // 여기서 customOverlay를 정의해주기
-
-                const categoryImageSrc = categoryImages[data.category];
-    
+                let categoryImageSrc;
+                
+                if (data.category) {
+                    categoryImageSrc = categoryImages[data.category];
+                } else {
+                    console.warn("Category is missing for marker:", markerData);
+                }                
+            
                 // 카테고리에 해당하는 이미지를 사용해서 커스텀 오버레이 생성
                 if (categoryImageSrc) {
                     const overlayContent = `<img src="${categoryImageSrc}" width="36px" height="37px" style="position: absolute; bottom: 37px; left: -18px;">`;
@@ -319,6 +354,10 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                         top: adjustedTop
                     });
 
+                    // const markersData = markerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    // console.log("Loaded markers data:", markersData);
+
+                    // console.log("Setting formData with marker data:", markerData.data);
                     setFormData({ 
                         ...markerData.data, 
                         position: { lat, lng }, 
@@ -343,13 +382,15 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             }).filter(marker => marker.id); // 필터링하여 빈 객체 제거
 
             markersRef.current = [...newMarkers];
-
+    
             const markersToDisplay = state.visibleMarkers.length > 0 ? state.visibleMarkers : newMarkers;
         
             dispatch({ type: actionTypes.SET_MARKERS, payload: newMarkers });
             dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: markersToDisplay });
-        })
-        .catch(error => console.error('Error:', error));
+    
+        } catch (error) {
+            console.error('Error:', error);
+        }
     };
 
     useEffect(() => {
@@ -441,9 +482,9 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
     const handleClose = () => {
         dispatch({ type: actionTypes.TOGGLE_FORM });
     }
-    
+
     const registerHandler = async (formState) => {
-    
+
         const { startDate, endDate } = state.formState;
         const { category, mode } = formState;
     
@@ -451,7 +492,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             alert("무엇을 할 것인지 선택하세요.");
             return;
         }
-
+    
         if (startDate && endDate && endDate < startDate) {
             alert("공고 종료가 공고 시작보다 이전일 수 없습니다.");
             return;
@@ -461,149 +502,122 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             tempMarkerRef.current.setMap(null);
             tempMarkerRef.current = null;
         }   
-
+    
         const positionValue = editingMarkerId ? (state.markers.find(marker => marker.id === editingMarkerId) || {}).position : tempMarkerPosition.current;
-
+    
         if (!positionValue) {
             console.error("Position value is missing or undefined");
             return;
         }
-
+    
         // id와 position을 formState에서 분리
         const { id, position, ...restFormState } = formState;
-
+    
         const newMarker = {
             id: editingMarkerId || uuidv4(), // 편집 중인 마커가 있으면 그 ID를 사용, 없으면 새로운 ID 생성
             position: positionValue,
             data: restFormState,
-            userId: user.uid  // Firebase 사용자의 UID 저장            
+            userId: user.uid  // Firebase 사용자의 UID 저장
         };
-
-        if (editingMarkerId !== null) {
-            // 수정된 데이터로 서버 업데이트
-            try {
-                const response = await fetch(`http://localhost:5000/markers/${editingMarkerId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(newMarker)
-                });
     
-                if (!response.ok) {
-                    throw new Error('Failed to update marker');
-                }
-
-                console.log(response);
-                const data = await response.json();
-                console.log('Success:', data);
-
-                setEditing(false);
-                // setEditingMarkerId(null); 이 코드 한 줄이 문제가 되어서 연속 수정, 수정 후 바로 삭제가 불가능했었음.
-
-                localStorage.removeItem('tempMarkerPosition'); // 마커 수정이 성공한 후, Local Storage의 tempMarkerPosition 삭제
-                setFormData({ ...formState, mode: 'view' }); // 여기서 formData 상태를 업데이트, 모드를 'view'로 변경
-        
-                await loadMarkers();
-
-                dispatch({ type: actionTypes.TOGGLE_FORM });
-
-                return { mode: 'view' }; // 모드를 'view'로 변경
-
-            } catch (error) {
-                console.error('Error:', error);
+        try {
+            const markersRef = collection(db, 'markers');
+            if (editingMarkerId) {
+                // Firestore에 수정된 데이터로 업데이트
+                const markerDoc = doc(markersRef, editingMarkerId);
+                await updateDoc(markerDoc, newMarker);
+            } else {
+                // Firestore에 새로운 마커 데이터 추가
+                await addDoc(markersRef, newMarker);
             }
-        } else { // 새로운 마커 등록으로 서버 업데이트
-            console.log('New Marker Data:', newMarker);
-            try {
-                const response = await fetch('http://localhost:5000/markers', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(newMarker)
-                });
     
-                if (!response.ok) {
-                    throw new Error('Failed to create marker');
-                }
+            setEditing(false);
+            localStorage.removeItem('tempMarkerPosition');
+            setFormData({ ...formState, mode: 'view' });
+            
+            await loadMarkers();
+            dispatch({ type: actionTypes.TOGGLE_FORM });
     
-                const data = await response.json();
-                console.log('Success:', data);
+            return { mode: 'view' };
     
-                setEditingMarkerId(newMarker.id); // 서버에서 받은 새로운 마커의 id로 업데이트
-
-                localStorage.removeItem('tempMarkerPosition'); // 마커 등록이 성공한 후, Local Storage의 tempMarkerPosition 삭제
-                setFormData({ ...formState, mode: 'view' }); // 여기서 formData 상태를 업데이트, 모드를 'view'로 변경
-
-                await loadMarkers(); // 기다려서 마커 데이터를 로드
-
-                // 새로운 마커 목록을 사용하여 상태 업데이트
-                dispatch({ type: actionTypes.SET_MARKERS, payload: [...markersRef.current] });
-
-                dispatch({ type: actionTypes.TOGGLE_FORM });
-                
-                return { mode: 'view' }; // 모드를 'view'로 변경
-
-            } catch (error) {
-                console.error('Error:', error);
-            }
+        } catch (error) {
+            console.error('Error:', error);
         }
-    }; 
+    };    
 
-    const handleDelete = async (id) => {    //마커 삭제로 서버 업데이트
+    const handleDelete = async (id) => {
     
         const isConfirmed = window.confirm('정말로 삭제하시겠습니까?');
         if (!isConfirmed) return;
         
         try {
-            const response = await fetch(`http://localhost:5000/markers/${id}`, {
-                method: 'DELETE',
-            });
-            
-            if (!response.ok) throw new Error('마커 삭제 실패');
+            const firebaseMarkersRef = collection(db, 'markers');
 
-            // 서버 응답 확인 후 지도상의 마커 제거
-            const markerToDelete = markersRef.current.find(marker => marker.id === id);
-            console.log('markerToDelete:', markerToDelete); // 해당 마커 객체의 상태 확인
-            console.log('markersRef.current:', markersRef.current); // 전체 마커 목록의 상태 확인
-            if (markerToDelete) {
-                markerToDelete.markerObject.setMap(null); // 마커 객체를 지도상에서 제거
+            let markerIdToDelete = id; // 주어진 id로 초기화
+        
+            // Firestore에서 id 필드 값을 기반으로 문서를 검색
+            const q = query(firebaseMarkersRef, where("id", "==", markerIdToDelete));
+    
+            const querySnapshot = await getDocs(q);
+    
+            // 문서가 있다면 첫 번째 문서의 ID를 가져옴
+            if (!querySnapshot.empty) {
+                markerIdToDelete = querySnapshot.docs[0].id;
+            } else {
+                console.error("No documents found with the given id value");
+                return;  // 아무 문서도 찾지 못한 경우 함수를 종료
+            }
+        
+            const markerDoc = doc(firebaseMarkersRef, markerIdToDelete);
+            await deleteDoc(markerDoc); // Firestore에서 해당 마커 삭제
+
+            // 지도상의 마커 제거
+            // 여기서 markersRef는 지도상의 마커 배열을 참조
+            if (Array.isArray(markersRef.current)) {
+                const markerToDelete = markersRef.current.find(marker => marker.id === id);
+                if (markerToDelete) {
+                    markerToDelete.markerObject.setMap(null);
+                }
+        
+                // markersRef.current 배열에서 해당 마커 제거
+                markersRef.current = markersRef.current.filter(marker => marker.id !== id);
+
+                // 카테고리 이미지도 같이 제기
+                if (markerToDelete.overlay) {
+                    markerToDelete.overlay.setMap(null);
+                }
             }
 
-            // markersRef.current 배열에서 해당 마커 제거
-            markersRef.current = markersRef.current.filter(marker => marker.id !== id);
- 
             // State에서 마커 데이터 제거
             dispatch({ type: actionTypes.REMOVE_MARKER, payload: id });
             
             console.log('마커 삭제 성공');
-
+    
             handleClose(); // 폼 닫기
-
-            window.location.reload(); // 페이지 재랜더링, 왠만하면 안 쓰려고 했는데... 상태 업데이트 방법 찾기
-
+        
         } catch (error) {
             console.error('Error during deletion:', error);
             alert('삭제 중 오류가 발생했습니다.');
         }
     };
-    
+  
     const placeMarker = (event) => {
-    
         console.log(event.latLng);
-    
+        
         if (state.tempMarker) {
             state.tempMarker.setMap(null);
         }
     
         const lat = event.latLng.getLat();
         const lng = event.latLng.getLng();
-
+    
         const newPosition = { lat, lng };
-        tempMarkerPosition.current = newPosition;
-        localStorage.setItem('tempMarkerPosition', JSON.stringify(newPosition));
-
+    
+        const savePosition = async () => {
+            await saveTempMarkerPosition(newPosition);
+        };
+        savePosition();
+    
         dispatch({
             type: actionTypes.UPDATE_TEMP_MARKER_POSITION,
             payload: newPosition,
@@ -617,36 +631,34 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         const tempMarker = new window.kakao.maps.Marker({
             position: new window.kakao.maps.LatLng(lat, lng)
         });
-        tempMarker.setMap(mapRef.current); // 임시 마커를 생성하고 지도에 표시
+        tempMarker.setMap(mapRef.current);
     
         window.kakao.maps.event.addListener(tempMarker, 'click', () => {
-
             dispatch({ type: actionTypes.TOGGLE_FORM });
             const point = mapRef.current.getProjection().pointFromCoords(new window.kakao.maps.LatLng(lat, lng));
-
             setFormPosition({
                 left: point.x,
                 top: point.y,
             });
-        }); // 마커 클릭 이벤트 리스너를 추가
+        });
     
         dispatch({
             type: actionTypes.ADD_MARKER,
-            payload: {
-                tempMarker: tempMarker
-            }
-        }); //임시 마커 저장
+            payload: { tempMarker }
+        });
     
         dispatch({ type: actionTypes.TOGGLE_LISTENER });
-    
-        // 이벤트 리스너 제거
         window.kakao.maps.event.removeListener(mapRef.current, 'click', placeMarker);
     };
-
+    
     useEffect(() => {
         // 페이지 로드 시 임시 마커 삭제
-        localStorage.removeItem('tempMarkerPosition');
-        if(tempMarkerRef.current) {
+        const deletePosition = async () => {
+            await deleteTempMarkerPosition();
+        };
+        deletePosition();
+    
+        if (tempMarkerRef.current) {
             tempMarkerRef.current.setMap(null);
             tempMarkerRef.current = null;
         }
@@ -681,7 +693,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             }
         }
     };    
- 
+
     useEffect(() => {
         if (state.isListenerActive) {
             document.body.classList.add('marker-cursor');
@@ -689,35 +701,27 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             document.body.classList.remove('marker-cursor');
         }
     }, [state.isListenerActive]);
-  
 
     useEffect(() => {
-        const updateMarkerPosition = () => {
-            const savedPosition = localStorage.getItem('tempMarkerPosition');
+        const updateAndRemoveTempMarker = async () => {
+            const savedPosition = await getTempMarkerPosition();  // Firestore에서 임시 마커의 위치를 가져옴
+    
             if (savedPosition) {
-                const parsedPosition = JSON.parse(savedPosition);
-                tempMarkerPosition.current = parsedPosition;
-                // Local storage에서 가져온 위치에 임시 마커를 생성하고 지도에 표시
+                tempMarkerPosition.current = savedPosition;
                 const tempMarker = new window.kakao.maps.Marker({
-                    position: new window.kakao.maps.LatLng(parsedPosition.lat, parsedPosition.lng)
+                    position: new window.kakao.maps.LatLng(savedPosition.lat, savedPosition.lng)
                 });
-                tempMarker.setMap(mapRef.current);
-                // 생성된 임시 마커를 상태에 저장
+                tempMarker.setMap(null);  // 임시 마커를 지도에서 삭제
                 dispatch({
-                    type: actionTypes.ADD_MARKER,
-                    payload: { tempMarker }
+                    type: actionTypes.REMOVE_MARKER,  // 임시 마커를 상태에서 삭제하는 액션
+                    payload: tempMarker
                 });
     
-                setFormState((prevState) => ({
-                    ...prevState,
-                }));
-
-                // 폼 열기
-                dispatch({ type: actionTypes.TOGGLE_FORM, payload: true });
+                await deleteTempMarkerPosition();  // Firestore에서 임시 마커의 위치 데이터를 삭제
             }
         };
-
-        updateMarkerPosition(); // 페이지가 새로고침될 때 임시 마커 위치 업데이트
+    
+        updateAndRemoveTempMarker();  // 페이지가 새로고침될 때 임시 마커 위치 업데이트 및 삭제
         loadMarkers();
     }, []);
 

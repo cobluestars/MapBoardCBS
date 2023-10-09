@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { getTempMarkerPosition, saveTempMarkerPosition, deleteTempMarkerPosition } from './TempMarkers';
 
-const CustomForm = ({ style, data, registerHandler, onClose, onDelete, markerId, user, userId, enableEditing, showBasicInfo  }) => {
-
+const CustomForm = ({
+  style, 
+  data, 
+  registerHandler, 
+  onClose, 
+  onDelete, 
+  markerId, 
+  user, 
+  userId, 
+  enableEditing, 
+  showBasicInfo  
+}) => {
+  
   const initialState = {
     title: "",
     content: "",
@@ -21,43 +33,31 @@ const CustomForm = ({ style, data, registerHandler, onClose, onDelete, markerId,
     userId: data ? data.userId : null  // data 객체의 userId 값을 초기 userId 값으로 설정
   });
 
-  const isOwner = user && user.uid === formData.userId;
-
-  const [isOwnerState, setIsOwnerState] = useState(false);
-
-  useEffect(() => {
-      setIsOwnerState(user && user.uid === formData.userId);
-  }, [user, formData.userId]);
-
-  useEffect(() => {
-      // 데이터가 주어진 경우 기존 데이터로 초기화
-      setFormData((prevState) => ({
-        ...prevState,
-        ...data,
-        userId: data.userId,
-        mode: 'view',
-      }));
+    useEffect(() => {
+      setFormData(data);
   }, [data]);
 
-  useEffect(() => {
-      console.log("isOwner has changed to:", isOwner);
-  }, [isOwner]);
+  const isOwner = user && user.uid === formData.userId;
 
   useEffect(() => {
-  // 현재 사용자의 userId와 마커의 userId가 같은 경우, 수정/삭제 기능을 활성화
+      const fetchTempMarkerPosition = async () => {
+          const position = await getTempMarkerPosition();
+          if (position) {
+              setFormData(prev => ({ ...prev, position })); // 데이터가 주어진 경우 기존 데이터로 초기화
+          }
+      };
+
+      fetchTempMarkerPosition();
+  }, []);
+
+  useEffect(() => {
+    // 현재 사용자의 userId와 마커의 userId가 같은 경우, 수정/삭제 기능을 활성화
     if (isOwner) {
-      // console.log("User UID:", user?.uid);
-      // console.log("userId:", formData.userId);
-      // console.log('수정삭제가능');
       enableEditing();
     } else {
-      // console.log("User UID:", user?.uid);
-      // console.log("formData userId:", formData.userId);
-      // console.log('수정삭제불가');
       showBasicInfo();
     }
   }, [isOwner, enableEditing, showBasicInfo]);
-  
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -82,24 +82,21 @@ const CustomForm = ({ style, data, registerHandler, onClose, onDelete, markerId,
       return;
     }
 
-    // registerHandler를 호출하고 업데이트된 데이터를 기존 formData에 반영
     const updatedFormState = await registerHandler({ ...formData });
     setFormData((prevData) => ({
       ...prevData,
       ...updatedFormState
     }));
-    setMarkerMode('view'); // registration/update 이후 view 모드로 변경
+    setMarkerMode('view');  // registration/update 이후 view 모드로 변경
 
     handleClose();
+
+    // Firestore에서 임시 마커의 위치 데이터를 삭제
+    await deleteTempMarkerPosition();
   };
 
   const handleEdit = () => {
-    if ( data.userId !== userId) {
-      alert("본인이 등록한 마커만 수정할 수 있습니다.");
-      return;
-    }
-  
-    switchToUpdateMode(); // 수정 모드로 변경
+    switchToUpdateMode();
   };
 
   const handleClose = () => {
@@ -107,7 +104,7 @@ const CustomForm = ({ style, data, registerHandler, onClose, onDelete, markerId,
   };
 
   const handleCancel = () => {
-    setMarkerMode('view'); // 취소 버튼을 누르면 view 모드로 변경
+    setMarkerMode('view');
   };
 
   return (
