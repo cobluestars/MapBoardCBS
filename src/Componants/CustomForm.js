@@ -91,6 +91,22 @@ const CustomForm = ({
 
   const handleFilesChange = (e) => {
     const newFiles = Array.from(e.target.files);
+    const existingFilesData = mediaFiles.map(file => ({
+        name: file.name,
+        size: file.size
+    }));
+
+    const hasDuplicate = newFiles.some(newFile => { //파일 중복 검사
+        const duplicate = existingFilesData
+        .find(existingFile =>
+              existingFile.name === newFile.name && existingFile.size === newFile.size);
+        return !!duplicate;
+    });
+
+    if (hasDuplicate) {
+        alert("똑같은 파일이 있습니다. 다른 파일을 선택해주세요.");
+        return;
+    }
 
     if (newFiles.length + mediaFiles.length <= 4) {
         const previewURLs = newFiles.map(file => 
@@ -106,7 +122,7 @@ const CustomForm = ({
     } else {
         alert("최대 4개의 파일만 업로드할 수 있습니다.");
     }
-};
+  };
 
   const uploadMedias = async () => {
     const urls = [];
@@ -143,6 +159,74 @@ const CustomForm = ({
       setActiveUploadTasks(currentUploadTasks);  // 마지막에 상태 업데이트
       setMediaURLs(urls);
       return urls;
+  };
+
+  /**
+   * Firebase Storage URL에서 미디어 파일 이름을 추출
+   * @param {string} fullURL - 전체 Firebase Storage URL
+   * @returns {string} 파일명
+   */
+  const extractFileNameFromFullURL = (fullURL) => {
+    const match = fullURL.match(/%2F(.*?)\?/);
+    return match ? match[1] : null;
+  };
+
+  /**
+  * Firebase Storage URL의 참조 횟수를 증가
+  * @param {string} mediaURL - 전체 Firebase Storage URL
+  */
+  const incrementMediaReferenceCount = async (mediaURL) => {
+    if (mediaURL.includes('firebasestorage.googleapis.com')) {  // Firebase Storage URL인지 확인
+        const fileName = extractFileNameFromFullURL(mediaURL);  // 파일명 추출
+        const docRef = doc(db, 'mediaReferences', fileName);
+        await runTransaction(db, async (transaction) => {
+            const docSnapshot = await transaction.get(docRef);
+            if (docSnapshot.exists()) {
+                const currentCount = docSnapshot.data().count || 0;
+                transaction.update(docRef, { count: currentCount + 1 });
+            } else {
+                transaction.set(docRef, { count: 1 });
+            }
+        });
+    }
+  };
+
+  /**
+  * Firebase Storage URL의 참조 횟수를 감소시키고 참조되지 않으면 삭제
+  * @param {string} mediaURL - 전체 Firebase Storage URL
+  */
+  const decrementAndRemoveMediaIfUnreferenced = async (mediaURL) => {
+    if (mediaURL.includes('firebasestorage.googleapis.com')) {  // Firebase Storage URL인지 확인
+        const fileName = extractFileNameFromFullURL(mediaURL);  // 파일명 추출
+        const docRef = doc(db, 'mediaReferences', fileName);
+        await runTransaction(db, async (transaction) => {
+            const docSnapshot = await transaction.get(docRef);
+            if (docSnapshot.exists()) {
+                const currentCount = docSnapshot.data().count || 0;
+                if (currentCount <= 1) {
+                    transaction.delete(docRef);
+                    
+                    // 스토리지에서 이미지 삭제 시작
+                    const storage = getStorage();
+                    const imageRef = ref(storage, mediaURL);
+                    try {
+                        await getDownloadURL(imageRef); // 이 이미지가 실제로 존재하는지 확인
+                        await deleteObject(imageRef);
+                    } catch (error) {
+                        if (error.code === "storage/object-not-found") {
+                            console.warn(`Image not found in storage: ${mediaURL}`);
+                        } else {
+                            console.error("Failed to delete image from storage:", error);
+                        }
+                    }
+                    // 스토리지에서 이미지 삭제 끝
+                    
+                } else {
+                    transaction.update(docRef, { count: currentCount - 1 });
+                }
+            }
+        });
+      }
   };
 
   //  url추가할 시, 유튜브 동영상 업로드 가능
@@ -212,162 +296,151 @@ const CustomForm = ({
         );
     }
     return null;
-}
-
-const handleImageClick = async (index) => {
-  //register/update 모드에서 이미지 업로드 취소 기능
-
-  const removedURL = mediaURLs[index];
-
-  // 이미지의 업로드 작업 취소 (만약 진행 중이라면)
-  const task = activeUploadTasks[index];
-  if (task) {
-      task.cancel();
   }
 
-  // `mediaFiles` 및 `mediaURLs`에서 해당 이미지를 제거
-  // 수정 버튼을 눌러 수정 작업을 완료해야 DB에 반영됨
-  setMediaFiles(prevFiles => {
-      const updatedFiles = [...prevFiles];
-      updatedFiles.splice(index, 1);
-      return updatedFiles;
-  });
+  const handleImageClick = async (index) => {
+    //register/update 모드에서 이미지 업로드 취소 기능
 
-  setMediaURLs(prevURLs => {
-      const updatedURLs = [...prevURLs];
-      updatedURLs.splice(index, 1);
-      return updatedURLs;
-  });
+    const removedURL = mediaURLs[index];
 
-  // 이미지가 Firestore에 존재하면 삭제
-  if (formData.mediaURL && formData.mediaURL.includes(removedURL)) {
-    await removeURLFromMarkerMediaURLs(markerId, removedURL); // 먼저 Firestore에서 URL 제거
-    await deleteImageFromStorage(removedURL);  // 그 후 Storage에서 이미지 삭제
-    
-    // 사용자가 이미지를 삭제할 때, 관련된 상태 값을 업데이트하는 로직
-    // 1. 현재 mediaURLs 상태에서 삭제하려는 이미지의 URL을 제거
+    // 이미지의 업로드 작업 취소 (만약 진행 중이라면)
+    const task = activeUploadTasks[index];
+    if (task) {
+        task.cancel();
+    }
+
+    // `mediaFiles` 및 `mediaURLs`에서 해당 이미지를 제거
+    // 수정 버튼을 눌러 수정 작업을 완료해야 DB에 반영됨
+    setMediaFiles(prevFiles => {
+        const updatedFiles = [...prevFiles];
+        updatedFiles.splice(index, 1);
+        return updatedFiles;
+    });
+
     setMediaURLs(prevURLs => {
-      // filter 메서드를 사용하여 removedURL과 일치하지 않는 URL만 새 배열에 포함
-      return prevURLs.filter(url => url !== removedURL);
+        const updatedURLs = [...prevURLs];
+        updatedURLs.splice(index, 1);
+        return updatedURLs;
     });
 
-    // 2. formData의 mediaURL 필드에서 삭제하려는 이미지의 URL을 제거
-    setFormData(prev => ({
-      // 현재 formData의 다른 모든 필드를 그대로 복사
-      ...prev,
-      // mediaURL 필드만 업데이트
-      mediaURL: prev.mediaURL.filter(url => url !== removedURL)
-    }));
-  } else {
-    console.warn(`URL ${removedURL} not found in formData.mediaURL`);
-  }
-};
-
-const removeURLFromMarkerMediaURLs = async (markerId, urlToRemove) => {
-  try {
-      // Firestore의 트랜잭션을 사용하여 동시성 문제 방지
-      await runTransaction(db, async (transaction) => {
-          // 'markers' 컬렉션의 참조 생성
-          const firebaseMarkersRef = collection(db, 'markers');
-          // 특정 markerId를 가진 문서의 참조 생성
-          const markerDocRef = doc(firebaseMarkersRef, markerId);
-          // 트랜잭션 내에서 문서 데이터 가져오기
-          const markerDoc = await transaction.get(markerDocRef);
-
-          // 해당 문서가 Firestore에 존재하는지 확인
-          if (!markerDoc.exists()) {
-              console.warn(`Document with ID ${markerId} does not exist.`);
-              throw new Error("Document does not exist");
-          }
-
-          // 문서 데이터에서 mediaURLs를 가져옴 (값이 없을 경우 빈 배열로 초기화)
-          const currentMediaURLs = markerDoc.data().mediaURL || [];
-
-          // 삭제하려는 URL이 mediaURLs 배열에 존재하는지 확인
-          if (currentMediaURLs.includes(urlToRemove)) {
-              // URL이 존재한다면, 해당 URL을 mediaURL 배열에서 제거
-              transaction.update(markerDocRef, {
-                  mediaURL: arrayRemove(urlToRemove)
-              });
-          } else {
-              // URL이 존재하지 않는다면, 경고 메시지 로깅
-              console.warn(`URL ${urlToRemove} not found in mediaURLs`);
-          }
-      });
-  } catch (error) {
-      // 트랜잭션 중 에러 발생 시, 에러 로깅
-      console.warn(`URL ${urlToRemove} not found in mediaURLs for marker with ID ${markerId}`);
-  }
-};
-
-// 이미지 삭제: 더 이상 마커들에 포함되어 있지 않을 이미지를 Storage에서 삭제
-const deleteImageFromStorage = async (url) => {
-  //storage에서 MediaURL 삭제
-  const storage = getStorage();
-  const imageRef = ref(storage, url);
-
-  try {
-      await getDownloadURL(imageRef); // 이 이미지가 실제로 존재하는지 확인
-      await deleteObject(imageRef);
-  } catch (error) {
-      if (error.code === "storage/object-not-found") {
-          console.warn(`Image not found in storage: ${url}`);
-      } else {
-          console.error("Failed to delete image from storage:", error);
-      }
-  }
-};
-
-const handleRegisterOrUpdate = async () => {
-  if (
-    markerMode === 'register' &&
-    (!formData.title ||
-      !formData.content ||
-      formData.category === '무엇을 할 것인지 선택하세요' ||
-      !formData.startDate ||
-      !formData.endDate)
-  ) {
-    alert('무엇을 할 것인지 구체적으로 알려주세요.');
-    return;
-  }
-
-    try {
+    // 이미지가 Firestore에 존재하면 삭제
+    if (formData.mediaURL && formData.mediaURL.includes(removedURL)) {
+      await removeURLFromMarkerMediaURLs(markerId, removedURL); 
+      // 먼저 Firestore에서 URL 제거
+      await decrementAndRemoveMediaIfUnreferenced(removedURL);
+      // 참조 횟수 감소 및 참조되지 않으면 스토리지에서 삭제
       
-      let mediaURLs = formData.mediaURL || []; // 기본 값을 빈 배열로 설정
-      // formData.mediaURL이 배열이 아니라면 배열로 변환
-      if (!Array.isArray(mediaURLs)) {
-          mediaURLs = [mediaURLs];
+      // 사용자가 이미지를 삭제할 때, 관련된 상태 값을 업데이트하는 로직
+      // 1. 현재 mediaURLs 상태에서 삭제하려는 이미지의 URL을 제거
+      setMediaURLs(prevURLs => {
+        // filter 메서드를 사용하여 removedURL과 일치하지 않는 URL만 새 배열에 포함
+        return prevURLs.filter(url => url !== removedURL);
+      });
+
+      // 2. formData의 mediaURL 필드에서 삭제하려는 이미지의 URL을 제거
+      setFormData(prev => ({
+        // 현재 formData의 다른 모든 필드를 그대로 복사
+        ...prev,
+        // mediaURL 필드만 업데이트
+        mediaURL: prev.mediaURL.filter(url => url !== removedURL)
+      }));
+    } else {
+      console.warn(`URL ${removedURL} not found in formData.mediaURL`);
+    }
+  };
+
+  const removeURLFromMarkerMediaURLs = async (markerId, urlToRemove) => {
+    try {
+        // Firestore의 트랜잭션을 사용하여 동시성 문제 방지
+        await runTransaction(db, async (transaction) => {
+            // 'markers' 컬렉션의 참조 생성
+            const firebaseMarkersRef = collection(db, 'markers');
+            // 특정 markerId를 가진 문서의 참조 생성
+            const markerDocRef = doc(firebaseMarkersRef, markerId);
+            // 트랜잭션 내에서 문서 데이터 가져오기
+            const markerDoc = await transaction.get(markerDocRef);
+
+            // 해당 문서가 Firestore에 존재하는지 확인
+            if (!markerDoc.exists()) {
+                console.warn(`Document with ID ${markerId} does not exist.`);
+                throw new Error("Document does not exist");
+            }
+
+            // 문서 데이터에서 mediaURLs를 가져옴 (값이 없을 경우 빈 배열로 초기화)
+            const currentMediaURLs = markerDoc.data().mediaURL || [];
+
+            // 삭제하려는 URL이 mediaURLs 배열에 존재하는지 확인
+            if (currentMediaURLs.includes(urlToRemove)) {
+                // URL이 존재한다면, 해당 URL을 mediaURL 배열에서 제거
+                transaction.update(markerDocRef, {
+                    mediaURL: arrayRemove(urlToRemove)
+                });
+            // } else {
+                // URL이 존재하지 않는다면, 경고 메시지 로깅
+                // console.warn(`URL ${urlToRemove} not found in mediaURLs`);
+            }
+        });
+    } catch (error) {
+        // 트랜잭션 중 에러 발생 시, 에러 로깅
+        console.warn(`URL ${urlToRemove} not found in mediaURLs for marker with ID ${markerId}`);
+    }
+  };
+
+  const handleRegisterOrUpdate = async () => {
+    if (
+      markerMode === 'register' &&
+      (!formData.title ||
+        !formData.content ||
+        formData.category === '무엇을 할 것인지 선택하세요' ||
+        !formData.startDate ||
+        !formData.endDate)
+    ) {
+      alert('무엇을 할 것인지 구체적으로 알려주세요.');
+      return;
+    }
+
+      try {
+        
+        let mediaURLs = formData.mediaURL || []; // 기본 값을 빈 배열로 설정
+        // formData.mediaURL이 배열이 아니라면 배열로 변환
+        if (!Array.isArray(mediaURLs)) {
+            mediaURLs = [mediaURLs];
+        }
+
+      // 파일 업로드 함수 호출
+      const newMediaURLs = await uploadMedias();
+
+      // 기존의 mediaURL과 새로운 mediaURLs를 병합
+      const combinedMediaURLs = [...mediaURLs, ...newMediaURLs];
+
+      const updatedFormState = await registerHandler({ 
+          ...formData, 
+          mediaURL: combinedMediaURLs 
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        mediaURL: updatedFormState.mediaURL || [],
+        ...updatedFormState
+      }));
+    
+      setMediaURLs(combinedMediaURLs); // 병합된 URL로 상태 업데이트
+
+      // 각 새로 업로드된 미디어의 참조 횟수 증가
+      for (const newMediaURL of newMediaURLs) {
+        await incrementMediaReferenceCount(newMediaURL);
       }
 
-    // 파일 업로드 함수 호출
-    const newMediaURLs = await uploadMedias();
+      setMarkerMode('view'); // registration/update 이후 view 모드로 변경
 
-    // 기존의 mediaURL과 새로운 mediaURLs를 병합
-    const combinedMediaURLs = [...mediaURLs, ...newMediaURLs];
+      handleClose();
 
-    const updatedFormState = await registerHandler({ 
-        ...formData, 
-        mediaURL: combinedMediaURLs 
-    });
-
-    setFormData(prev => ({
-      ...prev,
-      mediaURL: updatedFormState.mediaURL || [],
-      ...updatedFormState
-    }));
-  
-    setMediaURLs(combinedMediaURLs); // 병합된 URL로 상태 업데이트
-
-    setMarkerMode('view'); // registration/update 이후 view 모드로 변경
-
-    handleClose();
-
-    // Firestore에서 임시 마커의 위치 데이터를 삭제
-    await deleteTempMarkerPosition();
-  } catch (error) {
-    console.error('Error during registration or update:', error);
-  }
-};
+      // Firestore에서 임시 마커의 위치 데이터를 삭제
+      await deleteTempMarkerPosition();
+    } catch (error) {
+      console.error('Error during registration or update:', error);
+    }
+  };
 
   return (
     <div className="custom_form" style={style}>
