@@ -199,27 +199,27 @@ function KakaoMap(props) {
             <div id="map" ref={mapContainer} style={{ width: '1500px', height: '1000px', position: 'relative' }}>
                 <ul id="category">
                     <li id="BK9" data-order="0" onClick={onClickCategory}>
-                        <span class="category_bg bank"></span>
+                        <span className="category_bg bank"></span>
                         은행
                     </li>
                     <li id="MT1" data-order="1" onClick={onClickCategory}>
-                        <span class="category_bg mart"></span>
+                        <span className="category_bg mart"></span>
                         마트
                     </li>
                     <li id="PM9" data-order="2" onClick={onClickCategory}>
-                        <span class="category_bg pharmacy"></span>
+                        <span className="category_bg pharmacy"></span>
                         약국
                     </li>
                     <li id="OL7" data-order="3" onClick={onClickCategory}>
-                        <span class="category_bg oil"></span>
+                        <span className="category_bg oil"></span>
                         주유소
                     </li>
                     <li id="CE7" data-order="4" onClick={onClickCategory}>
-                        <span class="category_bg cafe"></span>
+                        <span className="category_bg cafe"></span>
                         카페
                     </li>
                     <li id="CS2" data-order="5" onClick={onClickCategory}>
-                        <span class="category_bg store"></span>
+                        <span className="category_bg store"></span>
                         편의점
                     </li>
                 </ul>

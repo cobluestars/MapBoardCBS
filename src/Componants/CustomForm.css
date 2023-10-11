@@ -8,6 +8,30 @@ body.marker-cursor {
 #menu_wrap2 .option p {margin:10px 0;}  
 #menu_wrap2 .option button {margin-left:5px;}
 
+.image-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    background-color: black;
+}
+
+.image-item {
+    width: 50%;
+    height: 50%;
+}
+
+.vertical-image {
+    width: 100%;
+    height: 50%;
+}
+
+.horizontal-image {
+    width: 50%;
+    height: 100%;
+}
+
+
 #placesList2 li {list-style: none;}
 #placesList2 .item {position:relative;border-bottom:1px solid #888;overflow: hidden;cursor: pointer;min-height: 65px;}
 #placesList2 .item span {display: block;margin-top:4px;}
