@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './KakaoMap.css'
-import { auth } from './Firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import Auth from './Auth';
 
 function KakaoMap(props) {
     const { onMapInitialized } = props;
@@ -18,47 +17,6 @@ function KakaoMap(props) {
         "CE7": "카페",
         "CS2": "편의점"
     };
-
-    // 회원가입/로그인/로그아웃
-    const [user, setUser] = useState(null);
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-        
-    // 회원가입 함수
-    const signUp = async () => {
-        try {
-            await createUserWithEmailAndPassword(auth, email, password);
-            alert("회원가입 성공!");
-        } catch (error) {
-            alert(error.message);
-        }
-    };
-
-    // 로그인 함수
-    const signIn = async () => {
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-        } catch (error) {
-            alert(error.message);
-        }
-    };
-
-    // 로그아웃 함수
-    const signOutUser = async () => {
-        try {
-            await signOut(auth);
-        } catch (error) {
-            alert(error.message);
-        }
-    };
-
-    // 사용자 상태 변경 감지
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, user => {
-            setUser(user);
-        });
-        return () => unsubscribe(); // 컴포넌트 unmount 시 unsubscribe
-    }, []);
 
     useEffect(() => {
         if (!window.kakao || !window.kakao.maps) {
@@ -182,19 +140,7 @@ function KakaoMap(props) {
     return (
         <div style={{ position: 'relative' }}>
             <div className="auth-wrap" style={{position: 'relative', float: 'right'}}>
-                {user ? (
-                    <>
-                        <span>Logged in as {user.email}</span>
-                        <button onClick={signOutUser}>로그아웃</button>
-                    </>
-                ) : (
-                    <>
-                        <input type="email" placeholder="Email" onChange={e => setEmail(e.target.value)} />
-                        <input type="password" placeholder="Password" onChange={e => setPassword(e.target.value)} />
-                        <button onClick={signUp}>회원가입</button>
-                        <button onClick={signIn}>로그인</button>
-                    </>
-                )}
+                <Auth/>
             </div>
             <div id="map" ref={mapContainer} style={{ width: '1500px', height: '1000px', position: 'relative' }}>
                 <ul id="category">

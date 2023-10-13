@@ -1,8 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // 이미지 모달 컴포넌트 생성
-function ImageModal({ isOpen, srcs, currentImageIndex, onClose }) {
+function ImageModal({ isOpen, srcs, currentImageIndex, onClose  }) {
     const [currentSlideIndex, setCurrentSlideIndex] = useState(currentImageIndex);
+    const [imageLoadStatus, setImageLoadStatus] = useState('loading');
+
+    // currentImageIndex가 변경되면 currentSlideIndex도 업데이트
+    useEffect(() => {
+        setCurrentSlideIndex(currentImageIndex);
+    }, [currentImageIndex]);
+
 
     // 모달이 열려 있지 않으면 null 반환
     if (!isOpen || !srcs || srcs.length === 0) return null;
@@ -23,8 +30,9 @@ function ImageModal({ isOpen, srcs, currentImageIndex, onClose }) {
         setCurrentSlideIndex(newIndex);
     };
 
-    // 배경 클릭 핸들러
+    // 배경 클릭 핸들러 (모달 폼 닫기)
     const handleBackgroundClick = () => {
+        setImageLoadStatus('loading'); // 이미지 로딩 상태를 'loading'으로 초기화
         onClose();
     };
 
@@ -51,8 +59,17 @@ function ImageModal({ isOpen, srcs, currentImageIndex, onClose }) {
                     onClick={handleImageClick}
                     src={srcs[currentSlideIndex]} 
                     alt="Full Size" 
-                    style={{ maxWidth: '90vw', maxHeight: '90vh' }}
+                    onLoad={() => setImageLoadStatus('loaded')}
+                    onError={() => setImageLoadStatus('error')}
+                    style={{ 
+                        maxWidth: '90vw', 
+                        maxHeight: '90vh', 
+                        display: imageLoadStatus === 'loaded' ? 'block' : 'none' 
+                    }}
                 />
+                {imageLoadStatus === 'loading' && <p>Loading...</p>}
+                {imageLoadStatus === 'error' && <p>Error loading image. Please try again later.</p>}
+
                 <div style={{ display: 'flex', marginTop: '10px', gap: '10px' }}>
                     <button onClick={(e) => goToPrevSlide(e)}>Prev</button>
                     <button onClick={(e) => goToNextSlide(e)}>Next</button>
@@ -64,7 +81,7 @@ function ImageModal({ isOpen, srcs, currentImageIndex, onClose }) {
                         right: 10,
                         cursor: 'pointer'
                     }}
-                    onClick={onClose}>
+                    onClick={handleBackgroundClick}>
                     X
                 </span>
             </div>

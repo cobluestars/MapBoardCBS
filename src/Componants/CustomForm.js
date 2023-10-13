@@ -3,6 +3,7 @@ import ImageModal from './ImageModal';
 import { getTempMarkerPosition, saveTempMarkerPosition, deleteTempMarkerPosition } from './TempMarkers';
 import { getStorage, deleteObject, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, getDocs, updateDoc, getDoc, deleteDoc, collection, query, where, getFirestore, runTransaction, arrayRemove } from 'firebase/firestore';
+import './CustomForm.css';
 
 const db = getFirestore();
 
@@ -49,18 +50,16 @@ const CustomForm = ({
 
   // 모달의 열림 상태와 이미지 URL 상태 추가
   const [isModalOpen, setModalOpen] = useState(false);
-  const [modalImageSrc, setModalImageSrc] = useState({ urls: [], currentIndex: -1 });
+  const [modalImageSrc, setModalImageSrc] = useState({ urls: [], currentIndex: null });
 
   // 이미지 클릭 핸들러
   const handleThumbnailClick = (clickedSrc) => {
-      console.log('clickedSrc:', clickedSrc);
-      const currentIndex = formData.mediaURL.findIndex(src => src === clickedSrc);
+      const currentIndex = formData.mediaURL.indexOf(clickedSrc);
       setModalImageSrc({
           urls: formData.mediaURL,
-          currentIndex
+          currentIndex,
+          // clickedSrc
       });
-      console.log('currentIndex', currentIndex);
-      console.log('mediaURLs:', formData.mediaURL);
       setModalOpen(true);
   };
 
@@ -497,17 +496,17 @@ const CustomForm = ({
 
   return (
     <div className="custom_form" style={style}>
-      <h2>상세 정보</h2>
+      <h2 className='Information_Detail'>상세 정보</h2>
       <br />
       {markerMode === 'view' ? (
         // View 모드에서는 데이터를 출력
         <>
           <div>
-            <label>제목</label>
+            <label className='title'>제목</label>
             <p>{formData.title}</p>
           </div>
           <div>
-            <label>내용</label>
+            <label className='content'>내용</label>
             {extractVideoID(formData.content) ? (
                 <iframe
                     src={`https://www.youtube.com/embed/${extractVideoID(formData.content)}`}
@@ -520,7 +519,7 @@ const CustomForm = ({
             )}
           </div>
           <div>
-            <label>이미지&동영상</label>
+            <label className='mediaURL'>이미지&동영상</label>
             <ImageGrid mediaURLs={formData.mediaURL} onImageClick={markerMode === 'view' ? handleThumbnailClick : handleImageClick} mode={markerMode} />
             {/* {Array.isArray(formData.mediaURL) && formData.mediaURL.map((url) => (
                 <div key={url}>
@@ -529,20 +528,20 @@ const CustomForm = ({
               ))} */}
             </div>
           <div>
-            <label>카테고리</label>
+            <label className='category'>카테고리</label>
             <p>{formData.category}</p>
           </div>
           <div>
-            <label>시작일</label>
+            <label className='startDate'>시작일</label>
             <p>{formData.startDate}</p>
           </div>
           <div>
-            <label>종료일</label>
+            <label className='endDate'>종료일</label>
             <p>{formData.endDate}</p>
           </div>
           {createdAt && (
             <div>
-                <label>등록 시간</label>
+                <label className='createdAt'>등록 시간</label>
                 <p>{new Date(createdAt.seconds * 1000).toLocaleString()}</p>
             </div>
           )}
@@ -552,7 +551,7 @@ const CustomForm = ({
                   <button onClick={() => onDelete(markerId)}>삭제</button>
               </>
           )}
-          <button onClick={handleClose}>닫기</button>
+          <button className='closebutton' onClick={handleClose}>닫기</button>
     
           <ImageModal 
               isOpen={isModalOpen} 
@@ -565,15 +564,15 @@ const CustomForm = ({
         // Update 또는 Register 모드에서는 입력 폼 표시
         <>
           <div>
-            <label>제목</label>
+            <label className='title'>제목</label>
             <input name="title" value={formData.title} onChange={handleInputChange} />
           </div>
           <div>
-            <label>내용</label>
+            <label className='content'>내용</label>
             <textarea name="content" value={formData.content} onChange={handleInputChange}></textarea>
           </div>
           <div>
-            <label>카테고리</label>
+            <label className='category'>카테고리</label>
             <select name="category" value={formData.category} onChange={handleInputChange}>
               <option value="무엇을 할 것인지 선택하세요">무엇을 할 것인지 선택하세요</option>
               <option value="알바">알바</option>
@@ -586,8 +585,8 @@ const CustomForm = ({
             </select>
           </div>
           <div>
-              <label>이미지&동영상</label>
-                <p>최대 4개까지 업로드 가능</p>
+              <label className='mediaURL'>이미지&동영상</label>
+                <p className='maximum4media'>최대 4개까지 업로드 가능</p>
                   <input
                     type="file"
                     ref={fileInputRef}
@@ -601,15 +600,15 @@ const CustomForm = ({
                   />
           </div>
           <div>
-            <label>시작일시</label>
+            <label className='startDate'>시작일시</label>
             <input type="datetime-local" name="startDate" value={formData.startDate} onChange={handleInputChange} />
           </div>
           <div>
-            <label>종료일시</label>
+            <label className='endDate'>종료일시</label>
             <input type="datetime-local" name="endDate" value={formData.endDate} onChange={handleInputChange} />
           </div>
           <button onClick={handleRegisterOrUpdate}>{markerMode === 'register' ? '등록' : '수정'}</button>
-          <button onClick={handleCancel}>취소</button>
+          <button className='closebutton' onClick={handleCancel}>취소</button>
         </>
       )}
     </div>
