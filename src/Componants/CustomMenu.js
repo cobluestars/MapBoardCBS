@@ -3,8 +3,8 @@ import './CustomMenu.css'
 import CustomForm from './CustomForm';
 
 //firestore
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, query, where, doc, getDoc, setDoc, deleteField } from 'firebase/firestore';
-import { getFirestore } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, setDoc, deleteField } from 'firebase/firestore';
+import { getFirestore, serverTimestamp } from 'firebase/firestore';
 
 //storage
 import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -40,7 +40,8 @@ const initialState = {
         endDate: "",
         mediaURL: []
     },
-    tempMarker: null
+    tempMarker: null,
+    createdAt: null
 };
 
 // 액션 타입 정의
@@ -392,7 +393,8 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                         ...markerData.data, 
                         position: { lat, lng }, 
                         userId: markerData.userId,
-                        mediaURL: mediaURLs // 배열로 설정
+                        mediaURL: mediaURLs, // 배열로 설정
+                        createdAt: markerData.createdAt
                     });
 
                     setFormState(prevState => ({
@@ -412,7 +414,8 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                             position: markerData.position, 
                             overlay: customOverlay, 
                             userId: markerData.userId,
-                            mediaURL: mediaURLs
+                            mediaURL: mediaURLs,
+                            createdAt: markerData.createdAt
                         }
                     });                
                 });
@@ -424,7 +427,8 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                     position: markerData.position, 
                     overlay: customOverlay, 
                     userId: markerData.userId,
-                    mediaURL: mediaURLs
+                    mediaURL: mediaURLs,
+                    createdAt: markerData.createdAt
                 };
             }).filter(marker => marker.id); // 필터링하여 빈 객체 제거
 
@@ -556,7 +560,8 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             return;
         }
     
-        const { id, position, userId, ...restFormState } = formState;   //id, position, userId는 formstate에서 제외
+        const { id, position, userId, createdAt, ...restFormState } = formState;
+        //수정 시 id, position, userId, createdAt이 db상에 중복 필드로 저장되는 걸 방지
 
         // mediaURL 배열에서 undefined 또는 빈 문자열을 제거
         restFormState.mediaURL = restFormState.mediaURL.filter(url => url);
@@ -569,9 +574,17 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         const newMarker = {
             position: positionValue,
             data: restFormState,
-            userId: user.uid  // Firebase 사용자의 UID 저장
+            userId: user.uid,  // Firebase 사용자의 UID 저장
         };
-    
+
+        if (!editingMarkerId) { 
+            // 새로운 마커를 생성하는 경우
+            newMarker.createdAt = serverTimestamp();
+        } else {
+            // 기존 마커를 수정하는 경우, formData의 createdAt 값을 사용
+            newMarker.createdAt = formData.createdAt;
+        }        
+
         let markerIdToUpdate = editingMarkerId; // 우선 주어진 editingMarkerId로 초기화
 
         try {
@@ -595,8 +608,9 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                 const docRef = await addDoc(markersRef, newMarker);
                 // Firestore에서 생성된 고유 ID
                 const firestoreDocumentId = docRef.id;
-                console.log("New Firestore document ID:", firestoreDocumentId);
+                // console.log("New Firestore document ID:", firestoreDocumentId);
             }    
+
             setEditing(false);
             localStorage.removeItem('tempMarkerPosition');
             setFormData({ ...formState, mode: 'view' });
@@ -604,6 +618,10 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             await loadMarkers();
             dispatch({ type: actionTypes.TOGGLE_FORM });
     
+            if (tempMarkerRef.current) {
+                tempMarkerRef.current.setImage(originalMarkerImage);
+            }
+
             return { mode: 'view' };
     
         } catch (error) {
@@ -720,6 +738,8 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         });
         tempMarker.setMap(mapRef.current);
         
+        tempMarkerRef.current = tempMarker;
+
         // 마커 클릭 이벤트 리스너 추가
         window.kakao.maps.event.addListener(tempMarker, 'click', () => {
             dispatch({ type: actionTypes.TOGGLE_FORM });
@@ -736,7 +756,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         });
     
         dispatch({ type: actionTypes.TOGGLE_LISTENER });
-        window.kakao.maps.event.removeListener(mapRef.current, 'click', placeMarker);
+        window.kakao.maps.event.removeListener(mapRef.current, 'click', placeMarker);        
     };
     
     useEffect(() => {
@@ -825,8 +845,9 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             <div id="menu_wrap2" className="bg_white">
                 <div className="option">
                     <p className='custommenu'>Custom Menu</p>
-                     
-                    {!state.showForm && <button onClick={handlePlaceMarker}>마커 배치하기</button>}
+                    { user ? ( 
+                    !state.showForm && <button onClick={handlePlaceMarker}>마커 배치하기</button>
+                    ) : null }
                 </div>
                 <div id="pagination2">
                     {/* TODO: Add pagination */}
@@ -851,9 +872,11 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                     <button onClick={handleCategorySearch}>검색</button>
                 </div>          
                 <div className="search-my-markers-only">
+                    { user ? (
                     <button onClick={handleMarkerSearchToggle}>
                         {showOnlyMyMarkers ? "모든 마커 검색" : "내 마커만 검색"}
                     </button>
+                    ) : null }
                 </div>
             </div>
             {state.showForm && 
@@ -874,6 +897,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                 onClose={handleClose}
                 data={formData}
                 formData={formState}
+                createdAt={formData.createdAt}
                 initialMode="register"
                 markerId={editingMarkerId}
                 onDelete={handleDelete}

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ImageModal from './ImageModal';
 import { getTempMarkerPosition, saveTempMarkerPosition, deleteTempMarkerPosition } from './TempMarkers';
 import { getStorage, deleteObject, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, getDocs, updateDoc, getDoc, deleteDoc, collection, query, where, getFirestore, runTransaction, arrayRemove } from 'firebase/firestore';
@@ -15,9 +16,10 @@ const CustomForm = ({
   user, 
   userId, 
   enableEditing, 
-  showBasicInfo  
+  showBasicInfo,
+  createdAt  
 }) => {
-  
+
   const initialState = {
     title: "",
     content: "",
@@ -42,9 +44,31 @@ const CustomForm = ({
   const [mediaFiles, setMediaFiles] = useState([]);
   const [mediaURLs, setMediaURLs] = useState([]);
 
-  const [activeUploadTasks, setActiveUploadTasks] = useState([]); //image 업로드 취소
-  
-    useEffect(() => {
+  const [activeUploadTasks, setActiveUploadTasks] = useState([]); //미디어파일 업로드 취소
+  const fileInputRef = useRef(null);  //미디어파일 입력 요소에 대한 참조 생성
+
+  // 모달의 열림 상태와 이미지 URL 상태 추가
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [modalImageSrc, setModalImageSrc] = useState({ urls: [], currentIndex: -1 });
+
+  // 이미지 클릭 핸들러
+  const handleThumbnailClick = (clickedSrc) => {
+      console.log('clickedSrc:', clickedSrc);
+      const currentIndex = formData.mediaURL.findIndex(src => src === clickedSrc);
+      setModalImageSrc({
+          urls: formData.mediaURL,
+          currentIndex
+      });
+      console.log('currentIndex', currentIndex);
+      console.log('mediaURLs:', formData.mediaURL);
+      setModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+      setModalOpen(false);
+  };
+
+  useEffect(() => {
       setFormData(data);
   }, [data]);
 
@@ -91,19 +115,20 @@ const CustomForm = ({
 
   const handleFilesChange = (e) => {
     const newFiles = Array.from(e.target.files);
-    const existingFilesData = mediaFiles.map(file => ({
-        name: file.name,
-        size: file.size
-    }));
 
-    const hasDuplicate = newFiles.some(newFile => { //파일 중복 검사
-        const duplicate = existingFilesData
-        .find(existingFile =>
-              existingFile.name === newFile.name && existingFile.size === newFile.size);
-        return !!duplicate;
-    });
+    /** 업로드파일 중복 확인 로직 */
+    // 파일 자체의 중복 확인
+    const hasDuplicateFile = newFiles.some(newFile => 
+      mediaFiles.some(existingFile => 
+          existingFile.name === newFile.name && existingFile.size === newFile.size
+        )
+    );
 
-    if (hasDuplicate) {
+    // Blob URL(미리보기 파일)의 중복 확인
+    const previewURLs = newFiles.map(file => URL.createObjectURL(file));
+    const hasDuplicateURL = previewURLs.some(url => mediaURLs.includes(url));
+
+    if (hasDuplicateFile || hasDuplicateURL) {
         alert("똑같은 파일이 있습니다. 다른 파일을 선택해주세요.");
         return;
     }
@@ -114,17 +139,23 @@ const CustomForm = ({
         );
 
         // 이전의 미리보기 URL과 새로운 미리보기 URL을 합침
-        setMediaURLs(prevURLs =>   Array.isArray(prevURLs) 
-        ? [...prevURLs, ...previewURLs] 
-        : [...previewURLs]
-        );
-        setMediaFiles(prevFiles => [...prevFiles, ...newFiles]);
+        setMediaURLs(prevURLs => {
+          return Array.isArray(prevURLs) ? [...prevURLs, ...previewURLs] : [...previewURLs];
+      });
+        
+        setMediaFiles(prevFiles => {
+          return [...prevFiles, ...newFiles];
+      });
+
     } else {
         alert("최대 4개의 파일만 업로드할 수 있습니다.");
     }
+
+    console.log("Selected files:", newFiles);
   };
 
   const uploadMedias = async () => {
+
     const urls = [];
     const currentUploadTasks = [];
 
@@ -167,8 +198,8 @@ const CustomForm = ({
    * @returns {string} 파일명
    */
   const extractFileNameFromFullURL = (fullURL) => {
-    const match = fullURL.match(/%2F(.*?)\?/);
-    return match ? match[1] : null;
+    const match = fullURL.match(/%2F((?:[^?%]*%[0-9a-f]{2})*[^?%]*)\?/i);
+    return match ? decodeURIComponent(match[1]) : null;
   };
 
   /**
@@ -248,105 +279,127 @@ const CustomForm = ({
     setMarkerMode('view');
   };
 
-  function ImageGrid({ mediaURLs, onImageClick }) {
-    if (!Array.isArray(mediaURLs)) {
-        return null;
-    }
-    if (mediaURLs.length <= 2) {
-        return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {mediaURLs.map((url, index) => (
-                    <img 
-                    key={index} 
-                    src={url} 
-                    alt={`Content ${index}`} 
-                    style={{ width: '100px', height: '100px', cursor: 'pointer' }} 
-                    onClick={() => onImageClick && onImageClick(index)} 
-                    />
-                ))}
-            </div>
-        );
-    } else if (mediaURLs.length === 3) {
-        return (
-            <div style={{ display: 'flex', flexDirection: 'row', gap: '10px' }}>
-                {mediaURLs.map((url, index) => (
-                    <img 
-                    key={index} 
-                    src={url} 
-                    alt={`Content ${index}`} 
-                    style={{ width: '100px', height: '100px', cursor: 'pointer' }} 
-                    onClick={() => onImageClick && onImageClick(index)}  
-                    />
-                ))}
-            </div>
-        );
-    } else if (mediaURLs.length === 4) {
-        return (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
-                {mediaURLs.map((url, index) => (
-                    <img 
-                    key={index} 
-                    src={url} 
-                    alt={`Content ${index}`} 
-                    style={{ width: '100px', height: '100px', cursor: 'pointer' }} 
-                    onClick={() => onImageClick && onImageClick(index)}  
-                    />
-                ))}
-            </div>
-        );
-    }
-    return null;
+  const ImageGrid = ({ mediaURLs, onImageClick, mode }) => {
+      // mediaURLs가 배열인지 확인
+      const validMediaURLs = Array.isArray(mediaURLs) ? mediaURLs : [];
+
+      const handleClick = (url, index) => {
+        // console.log('Inside handleClick - url:', url);
+        if (mode === 'view') {
+            onImageClick(url);
+        } else {
+            onImageClick(index);
+        }
+      };
+      
+      if (validMediaURLs.length <= 2) {
+          return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {validMediaURLs.map((url, index) => (
+                    <div key={index} style={{ textAlign: 'center' }}>
+                        <img 
+                            src={url} 
+                            alt={`Content ${index}`} 
+                            style={{ width: '100px', height: '100px', cursor: 'pointer' }} 
+                            onClick={() => handleClick(url, index)}  
+                        />
+                        {mode !== 'view' ? (
+                        <div style={{ fontSize: '8px', marginTop: '5px' }}>{url}</div>
+                        ) : null}
+                    </div>
+                  ))}
+              </div>
+          );
+      } else if (validMediaURLs.length === 3) {
+          return (
+              <div style={{ display: 'flex', flexDirection: 'row', gap: '10px' }}>
+                  {validMediaURLs.map((url, index) => (
+                    <div key={index} style={{ textAlign: 'center' }}>
+                      <img 
+                          src={url} 
+                          alt={`Content ${index}`} 
+                          style={{ width: '100px', height: '100px', cursor: 'pointer' }} 
+                          onClick={() => handleClick(url, index)}  
+                      />
+                      {mode !== 'view' ? (
+                      <div style={{ fontSize: '8px', marginTop: '5px' }}>{url}</div>
+                      ) : null}
+                    </div>
+                  ))}
+              </div>
+          );
+      } else if (validMediaURLs.length === 4) {
+          return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                  {validMediaURLs.map((url, index) => (
+                    <div key={index} style={{ textAlign: 'center' }}>
+                      <img 
+                          src={url} 
+                          alt={`Content ${index}`} 
+                          style={{ width: '100px', height: '100px', cursor: 'pointer' }} 
+                          onClick={() => handleClick(url, index)}  
+                      />
+                      {mode !== 'view' ? (
+                      <div style={{ fontSize: '8px', marginTop: '5px' }}>{url}</div>
+                      ) : null}
+                  </div>
+                  ))}
+              </div>
+          );
+      }
+
+      return null;
   }
 
   const handleImageClick = async (index) => {
-    //register/update 모드에서 이미지 업로드 취소 기능
+    
+      //register/update 모드에서 이미지 업로드 취소 핸들러
+      const removedURL = mediaURLs[index];
 
-    const removedURL = mediaURLs[index];
+      // 이미지의 업로드 작업 취소 (만약 진행 중이라면)
+      const task = activeUploadTasks[index];
+      if (task) {
+          task.cancel();
+      }
 
-    // 이미지의 업로드 작업 취소 (만약 진행 중이라면)
-    const task = activeUploadTasks[index];
-    if (task) {
-        task.cancel();
-    }
+      // 취소 후 파일 입력 요소의 값을 초기화
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      };
 
-    // `mediaFiles` 및 `mediaURLs`에서 해당 이미지를 제거
-    // 수정 버튼을 눌러 수정 작업을 완료해야 DB에 반영됨
-    setMediaFiles(prevFiles => {
-        const updatedFiles = [...prevFiles];
-        updatedFiles.splice(index, 1);
-        return updatedFiles;
-    });
-
-    setMediaURLs(prevURLs => {
-        const updatedURLs = [...prevURLs];
-        updatedURLs.splice(index, 1);
-        return updatedURLs;
-    });
-
-    // 이미지가 Firestore에 존재하면 삭제
-    if (formData.mediaURL && formData.mediaURL.includes(removedURL)) {
-      await removeURLFromMarkerMediaURLs(markerId, removedURL); 
       // 먼저 Firestore에서 URL 제거
-      await decrementAndRemoveMediaIfUnreferenced(removedURL);
-      // 참조 횟수 감소 및 참조되지 않으면 스토리지에서 삭제
-      
-      // 사용자가 이미지를 삭제할 때, 관련된 상태 값을 업데이트하는 로직
-      // 1. 현재 mediaURLs 상태에서 삭제하려는 이미지의 URL을 제거
-      setMediaURLs(prevURLs => {
-        // filter 메서드를 사용하여 removedURL과 일치하지 않는 URL만 새 배열에 포함
-        return prevURLs.filter(url => url !== removedURL);
+      if (formData.mediaURL && Array.isArray(formData.mediaURL)) {
+        if (formData.mediaURL && formData.mediaURL.includes(removedURL)) {
+          await removeURLFromMarkerMediaURLs(markerId, removedURL); 
+          await decrementAndRemoveMediaIfUnreferenced(removedURL); 
+        } else {
+              //formData의 mediaURL에서 잘못된 blob URL 제거
+              setFormData(prev => ({
+              ...prev,
+              mediaURL: prev.mediaURL.filter(url => url !== removedURL)
+          }));      
+          console.warn(`URL ${removedURL} not found in formData.mediaURL`);
+        }
+      }
+
+      // `mediaFiles` 및 `mediaURLs`에서 해당 이미지를 제거
+      // 수정 버튼을 눌러 수정 작업을 완료해야 DB에 반영됨
+      setMediaFiles(prevFiles => {
+          const updatedFiles = [...prevFiles];
+          updatedFiles.splice(index, 1);
+          return updatedFiles;
       });
 
-      // 2. formData의 mediaURL 필드에서 삭제하려는 이미지의 URL을 제거
+      const updatedURLs = mediaURLs.filter(url => url !== removedURL);
+      setMediaURLs(updatedURLs);
+
+      // formData의 mediaURL 필드에서 삭제하려는 이미지의 URL을 제거
       setFormData(prev => ({
-        // 현재 formData의 다른 모든 필드를 그대로 복사
-        ...prev,
-        // mediaURL 필드만 업데이트
-        mediaURL: prev.mediaURL.filter(url => url !== removedURL)
+          // 현재 formData의 다른 모든 필드를 그대로 복사
+          ...prev,
+          // mediaURL 필드만 업데이트
+          mediaURL: updatedURLs
       }));
-    } else {
-      console.warn(`URL ${removedURL} not found in formData.mediaURL`);
-    }
   };
 
   const removeURLFromMarkerMediaURLs = async (markerId, urlToRemove) => {
@@ -468,7 +521,7 @@ const CustomForm = ({
           </div>
           <div>
             <label>이미지&동영상</label>
-                <ImageGrid mediaURLs={formData.mediaURL} />
+            <ImageGrid mediaURLs={formData.mediaURL} onImageClick={markerMode === 'view' ? handleThumbnailClick : handleImageClick} mode={markerMode} />
             {/* {Array.isArray(formData.mediaURL) && formData.mediaURL.map((url) => (
                 <div key={url}>
                     {formData.mediaURL && <ImageGrid mediaURLs={formData.mediaURL} />}
@@ -487,6 +540,12 @@ const CustomForm = ({
             <label>종료일</label>
             <p>{formData.endDate}</p>
           </div>
+          {createdAt && (
+            <div>
+                <label>등록 시간</label>
+                <p>{new Date(createdAt.seconds * 1000).toLocaleString()}</p>
+            </div>
+          )}
           {isOwner && (
               <>
                   <button onClick={handleEdit}>수정</button>
@@ -494,9 +553,16 @@ const CustomForm = ({
               </>
           )}
           <button onClick={handleClose}>닫기</button>
+    
+          <ImageModal 
+              isOpen={isModalOpen} 
+              srcs={modalImageSrc.urls}
+              currentImageIndex={modalImageSrc.currentIndex}
+              onClose={handleModalClose}
+          />
         </>
       ) : (
-        // Edit 또는 Register 모드에서는 입력 폼 표시
+        // Update 또는 Register 모드에서는 입력 폼 표시
         <>
           <div>
             <label>제목</label>
@@ -522,8 +588,17 @@ const CustomForm = ({
           <div>
               <label>이미지&동영상</label>
                 <p>최대 4개까지 업로드 가능</p>
-                  <input type="file" multiple onChange={handleFilesChange} />
-                  <ImageGrid mediaURLs={mediaURLs} onImageClick={handleImageClick} />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    multiple onChange={handleFilesChange}
+                  />
+                  <ImageGrid 
+                    mediaURLs={mediaURLs} 
+                    validMediaURLs={formData.mediaURL}
+                    onImageClick={markerMode === 'view' ? handleThumbnailClick : handleImageClick} 
+                    mode={markerMode} 
+                  />
           </div>
           <div>
             <label>시작일시</label>
