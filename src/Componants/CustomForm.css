@@ -28,8 +28,26 @@ body.marker-cursor {
 
 .Information_Detail {
     text-align: center;
+    font-size: 14px;
     font-weight: 800;
 }
+
+.hr1, .hr2, .hr3 {
+    margin: 5px 0;
+}
+
+.title, .content, .mediaURL, .category, .startDate, .endDate, .createdAt, .email {
+    margin: 3px 0;
+    font-weight: 700;
+}
+
+/* .emailID {
+    margin-bottom: 5px;
+}
+
+.buttons {
+    margin: 10px 0;
+} */
 
 .closebutton {
     float: right;

@@ -1,148 +1,132 @@
 {
   "markers": [
     {
-      "id": "c24baf1a-29ff-472e-ad03-34d11e27e802",
-      "position": {
-        "lat": 37.572094750696635,
-        "lng": 126.97717917346041
-      },
+      "chatid": "35723c0b-8fe9-4d85-845e-699d994aa221",
       "data": {
-        "title": "11",
-        "content": "1",
-        "category": "알바",
-        "startDate": "2023-10-07T11:39",
-        "endDate": "2023-10-11T11:39",
-        "mode": "view"
-      },
-      "userId": "CUJRFXx6AleBkL1ih2xTQNRhewD2"
-    },
-    {
-      "id": "79f6f900-e793-4a50-a3c0-19b18f15256f",
-      "position": {
-        "lat": 37.57200442234997,
-        "lng": 126.97602457728154
-      },
-      "data": {
-        "title": "2",
-        "content": "2",
+        "mediaURL": [
+          "https://firebasestorage.googleapis.com/v0/b/mapboard-35c14.appspot.com/o/uploads%2FCalabi-Yau-alternate.png?alt=media&token=23a63287-92e3-4b2e-9c9b-a360d3f440ec",
+          "https://firebasestorage.googleapis.com/v0/b/mapboard-35c14.appspot.com/o/uploads%2FFoyM7ZHWcA0BhKf.jfif?alt=media&token=951a435a-1069-4039-a875-258dbbd240e8"
+        ],
+        "endDate": "2023-10-20T15:40",
+        "title": "test1",
         "category": "프리랜서",
-        "startDate": "2023-10-07T11:58",
-        "endDate": "2023-10-14T11:58",
-        "mode": "view"
+        "content": "test1",
+        "startDate": "2023-10-16T15:40"
       },
-      "userId": "4DvTyNRgmVP3hQ17rlITnqUUvj33"
+      "position": {
+        "lng": 126.9832469945753,
+        "lat": 37.57040189670425
+      },
+      "userId": "CUJRFXx6AleBkL1ih2xTQNRhewD2",
+      "email": "fireredstars@gmail.com",
+      "createdAt": {
+        "_seconds": 1697438423,
+        "_nanoseconds": 929000000
+      }
+    }
+  ],
+  "users": [
+    {
+      "uid": "4DvTyNRgmVP3hQ17rlITnqUUvj33",
+      "email": "cobaltbluestars@gmail.com",
+      "emailVerified": false,
+      "disabled": false,
+      "metadata": {
+        "lastSignInTime": "Thu, 12 Oct 2023 04:29:20 GMT",
+        "creationTime": "Sat, 07 Oct 2023 00:49:21 GMT",
+        "lastRefreshTime": "Thu, 12 Oct 2023 04:29:20 GMT"
+      },
+      "passwordHash": "XxIZ9K_1lUuqk6iYRVuwRDk4pmMRzlSq9xLTZKzuXzIfA45XCoOUMwL70JVVShOgCMdyK2mRz-rM7qrvn8NaFA==",
+      "passwordSalt": "3plGUNg-HCLv3A==",
+      "tokensValidAfterTime": "Sat, 07 Oct 2023 00:49:21 GMT",
+      "providerData": [
+        {
+          "uid": "cobaltbluestars@gmail.com",
+          "email": "cobaltbluestars@gmail.com",
+          "providerId": "password"
+        }
+      ]
     },
     {
-      "id": "b2b1d37d-49b1-4861-8bf5-ae02fd79068e",
-      "position": {
-        "lat": 37.5708690897115,
-        "lng": 126.97564007248423
+      "uid": "CUJRFXx6AleBkL1ih2xTQNRhewD2",
+      "email": "fireredstars@gmail.com",
+      "emailVerified": false,
+      "disabled": false,
+      "metadata": {
+        "lastSignInTime": "Mon, 16 Oct 2023 06:39:39 GMT",
+        "creationTime": "Sat, 07 Oct 2023 00:51:56 GMT",
+        "lastRefreshTime": "Mon, 16 Oct 2023 06:39:39 GMT"
       },
-      "data": {
-        "title": "3",
-        "content": "3",
-        "category": "직거래",
-        "startDate": "2023-10-07T12:23",
-        "endDate": "2023-10-13T12:23",
-        "mode": "view"
-      },
-      "userId": "4DvTyNRgmVP3hQ17rlITnqUUvj33"
+      "passwordHash": "m318W__Z28nB5rmgAWv2U88-3k9p3lkMEZJgXbcUPxeljmHIoLvlgs15oviBN2gIu6cZHGQ-stIBtcM-uCjEaw==",
+      "passwordSalt": "7Y2NKClpTUSqHA==",
+      "tokensValidAfterTime": "Fri, 13 Oct 2023 01:48:17 GMT",
+      "providerData": [
+        {
+          "uid": "fireredstars@gmail.com",
+          "email": "fireredstars@gmail.com",
+          "providerId": "password"
+        }
+      ]
+    }
+  ],
+  "files": [
+    "https://storage.googleapis.com/download/storage/v1/b/mapboard-35c14.appspot.com/o/uploads%2FCalabi-Yau-alternate.png?generation=1697438421736296&alt=media",
+    "https://storage.googleapis.com/download/storage/v1/b/mapboard-35c14.appspot.com/o/uploads%2FFoyM7ZHWcA0BhKf.jfif?generation=1697438423465947&alt=media"
+  ],
+  "chatrooms": [
+    {
+      "chatid": "35723c0b-8fe9-4d85-845e-699d994aa221",
+      "currentemail": "fireredstars@gmail.com",
+      "email": "fireredstars@gmail.com",
+      "messages": [
+        {
+          "senderEmail": "cobaltbluestars@gmail.com",
+          "text": "Hello World!",
+          "sendAt": "2023-10-16, 17:40:00"
+        },
+        {
+          "senderEmail": "fireredstars@gmail.com",
+          "text": "lalala!",
+          "sendAt": "2023-10-16, 17:41:00"
+        },
+        {
+          "senderEmail": "fireredstars@gmail.com",
+          "text": "1",
+          "sendAt": "2023-10-16T22:14:50.829Z"
+        },
+        {
+          "senderEmail": "fireredstars@gmail.com",
+          "text": "test",
+          "sendAt": "2023-10-16T22:47:15.619Z"
+        },
+        {
+          "senderEmail": "fireredstars@gmail.com",
+          "text": "ㅁㅁㅁ",
+          "sendAt": "2023-10-17T00:52:38.536Z"
+        },
+        {
+          "senderEmail": "fireredstars@gmail.com",
+          "text": "111",
+          "sendAt": "2023-10-17T00:58:45.760Z"
+        },
+        {
+          "senderEmail": "fireredstars@gmail.com",
+          "text": "11123",
+          "sendAt": "2023-10-17T02:09:30.570Z"
+        }
+      ]
     },
     {
-      "id": "cdea11b2-25cd-46ae-989e-e47cd8dcaecb",
-      "position": {
-        "lat": 37.57094166530173,
-        "lng": 126.97817565711155
-      },
-      "data": {
-        "title": "4",
-        "content": "4",
-        "category": "심부름",
-        "startDate": "2023-10-04T13:11",
-        "endDate": "2023-10-10T13:11",
-        "mode": "view"
-      },
-      "userId": "CUJRFXx6AleBkL1ih2xTQNRhewD2"
-    },
-    {
-      "id": "bf22eecc-559a-46a1-9ea6-23ee30ab56e4",
-      "position": {
-        "lat": 37.56903105920804,
-        "lng": 126.97564067109401
-      },
-      "data": {
-        "title": "5",
-        "content": "5",
-        "category": "과외",
-        "startDate": "2023-10-07T13:12",
-        "endDate": "2023-10-12T13:12",
-        "mode": "view"
-      },
-      "userId": "CUJRFXx6AleBkL1ih2xTQNRhewD2"
-    },
-    {
-      "id": "3b778516-42fe-452a-99a6-0fc931945009",
-      "position": {
-        "lat": 37.571158418777465,
-        "lng": 126.98116399799336
-      },
-      "data": {
-        "title": "6",
-        "content": "6",
-        "category": "대리인",
-        "startDate": "2023-10-07T13:14",
-        "endDate": "2023-10-12T13:14",
-        "mode": "view"
-      },
-      "userId": "CUJRFXx6AleBkL1ih2xTQNRhewD2"
-    },
-    {
-      "id": "19d7d527-ea3e-48a1-bed3-e9d5a3c138df",
-      "position": {
-        "lat": 37.57018497712787,
-        "lng": 126.97899088660421
-      },
-      "data": {
-        "title": "7",
-        "content": "7",
-        "category": "대리인",
-        "startDate": "2023-10-07T13:16",
-        "endDate": "2023-10-10T13:16",
-        "mode": "view"
-      },
-      "userId": "CUJRFXx6AleBkL1ih2xTQNRhewD2"
-    },
-    {
-      "id": "26da4898-8b09-4af0-a552-2970cb635bf7",
-      "position": {
-        "lat": 37.56690533706602,
-        "lng": 126.97890125518623
-      },
-      "data": {
-        "title": "11",
-        "content": "11",
-        "category": "청소",
-        "startDate": "2023-10-07T13:20",
-        "endDate": "2023-10-09T13:20",
-        "mode": "view"
-      },
-      "userId": "CUJRFXx6AleBkL1ih2xTQNRhewD2"
-    },
-    {
-      "id": "64c6a48e-e53f-4c42-bb62-6e8e9759da13",
-      "position": {
-        "lat": 37.56795107719748,
-        "lng": 126.98247783603524
-      },
-      "data": {
-        "title": "되나요?",
-        "content": "되나?",
-        "category": "알바",
-        "startDate": "2023-10-06T13:26",
-        "endDate": "2023-10-26T13:26",
-        "mode": "view"
-      },
-      "userId": "CUJRFXx6AleBkL1ih2xTQNRhewD2"
+      "chatid": "e35c1383-47ff-4d12-825d-938b6044c9eb",
+      "currentemail": "",
+      "email": "",
+      "messages": [
+        {
+          "senderEmail": "fireredstars@gmail.com",
+          "text": "1",
+          "sendAt": "2023-10-17T00:35:26.458Z"
+        }
+      ]
     }
   ]
 }

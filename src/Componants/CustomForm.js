@@ -4,6 +4,7 @@ import { getTempMarkerPosition, saveTempMarkerPosition, deleteTempMarkerPosition
 import { getStorage, deleteObject, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, getDocs, updateDoc, getDoc, deleteDoc, collection, query, where, getFirestore, runTransaction, arrayRemove } from 'firebase/firestore';
 import './CustomForm.css';
+import ChatModal from './ChatModal';
 
 const db = getFirestore();
 
@@ -18,7 +19,11 @@ const CustomForm = ({
   userId, 
   enableEditing, 
   showBasicInfo,
-  createdAt  
+  chatid,
+  position,
+  createdAt,
+  email,
+  currentemail  
 }) => {
 
   const initialState = {
@@ -41,6 +46,17 @@ const CustomForm = ({
     userId: data ? data.userId : null,  // data 객체의 userId 값을 초기 userId 값으로 설정
     mediaURL: data && Array.isArray(data.mediaURL) ? data.mediaURL : []
 });
+
+  const [isChatModalOpen, setChatModalOpen] = useState(false);
+  //댓글 창 열고 닫기
+
+  const handleChatModalOpen = () => {
+    setChatModalOpen(true);
+  };
+
+  const handleChatModalClose = () => {
+    setChatModalOpen(false);
+  };
 
   const [mediaFiles, setMediaFiles] = useState([]);
   const [mediaURLs, setMediaURLs] = useState([]);
@@ -497,7 +513,7 @@ const CustomForm = ({
   return (
     <div className="custom_form" style={style}>
       <h2 className='Information_Detail'>상세 정보</h2>
-      <br />
+      <hr className='hr1'/>
       {markerMode === 'view' ? (
         // View 모드에서는 데이터를 출력
         <>
@@ -521,12 +537,7 @@ const CustomForm = ({
           <div>
             <label className='mediaURL'>이미지&동영상</label>
             <ImageGrid mediaURLs={formData.mediaURL} onImageClick={markerMode === 'view' ? handleThumbnailClick : handleImageClick} mode={markerMode} />
-            {/* {Array.isArray(formData.mediaURL) && formData.mediaURL.map((url) => (
-                <div key={url}>
-                    {formData.mediaURL && <ImageGrid mediaURLs={formData.mediaURL} />}
-                </div>
-              ))} */}
-            </div>
+          </div>
           <div>
             <label className='category'>카테고리</label>
             <p>{formData.category}</p>
@@ -545,14 +556,29 @@ const CustomForm = ({
                 <p>{new Date(createdAt.seconds * 1000).toLocaleString()}</p>
             </div>
           )}
+          <hr className='hr2'/>
+          <div>
+              <label className='email'>ID</label>
+              <p className='emailID'>{email}</p>
+          </div>
+          <hr className='hr3'/>
+          <div className='buttons'>
           {isOwner && (
               <>
                   <button onClick={handleEdit}>수정</button>
                   <button onClick={() => onDelete(markerId)}>삭제</button>
               </>
           )}
+          <button onClick={handleChatModalOpen}>댓글</button>
+          <ChatModal 
+              isOpen={isChatModalOpen} 
+              onClose={handleChatModalClose}
+              currentemail={currentemail}
+              markerOwnerEmail={email}
+              chatid={chatid}
+          />
           <button className='closebutton' onClick={handleClose}>닫기</button>
-    
+          </div>
           <ImageModal 
               isOpen={isModalOpen} 
               srcs={modalImageSrc.urls}
@@ -607,8 +633,11 @@ const CustomForm = ({
             <label className='endDate'>종료일시</label>
             <input type="datetime-local" name="endDate" value={formData.endDate} onChange={handleInputChange} />
           </div>
-          <button onClick={handleRegisterOrUpdate}>{markerMode === 'register' ? '등록' : '수정'}</button>
-          <button className='closebutton' onClick={handleCancel}>취소</button>
+          <hr className='hr3'/>
+          <div className='buttons'>
+            <button onClick={handleRegisterOrUpdate}>{markerMode === 'register' ? '등록' : '수정'}</button>
+            <button className='closebutton' onClick={handleCancel}>취소</button>
+          </div>
         </>
       )}
     </div>

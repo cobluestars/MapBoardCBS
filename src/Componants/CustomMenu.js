@@ -23,6 +23,10 @@ import teacherImage from '../icon/icons8-선생-50.png';
 import cleaningImage from '../icon/icons8-청소-50.png';
 import insuranceAgentImage from '../icon/icons8-insurance-agent-50.png';
 
+import { v4 as uuidv4 } from 'uuid'; // chatid
+
+import gql from 'graphql-tag';
+
 const db = getFirestore();
 
 // 초기 상태 정의
@@ -41,7 +45,8 @@ const initialState = {
         mediaURL: []
     },
     tempMarker: null,
-    createdAt: null
+    createdAt: null,
+    chatid: null
 };
 
 // 액션 타입 정의
@@ -116,8 +121,9 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
     
     // CustomMenu 컴포넌트
     const customMenuMarkersRef = useRef([]);
-    const [searchCategory, setSearchCategory] = useState(''); // 검색할 카테고리 상태
     const [searchKeyword, setSearchKeyword] = useState('');   // 검색할 키워드 상태
+    const [searchEmail, setSearchEmail] = useState('');   // 검색할 이메일 상태
+    const [searchCategory, setSearchCategory] = useState(''); // 검색할 카테고리 상태
     const [showOnlyMyMarkers, setShowOnlyMyMarkers] = useState(false);
  
     const auth = getAuth();
@@ -251,17 +257,27 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
 
     // user 상태와 setUser 함수 정의
     const [user, setUser] = useState(null);
+    // 로딩 상태 초기화
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         // 로그인 상태가 변경될 때마다 user 상태를 업데이트
         const unsubscribe = onAuthStateChanged(auth, currentUser => {
-            setUser(currentUser);
+            if (currentUser) {
+                setUser({
+                    email: currentUser.email,
+                    uid: currentUser.uid,
+                });
+            } else {
+                setUser(null);
+            }
+            setLoading(false);  // user 상태 업데이트 후 로딩 상태 업데이트
         });
-
         // 컴포넌트 unmount 시 unsubscribe
         return () => unsubscribe();
     }, []);
- 
+    
+    
     const [showEditFeatures, setShowEditFeatures] = useState(false);
 
     function enableMarkerEditingFeatures() {
@@ -291,14 +307,14 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         try {
             const markersCollection = collection(db, 'markers');
             const markerSnapshot = await getDocs(markersCollection);
-            const markersData = markerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const markersData = markerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), currentemail: user && user.email }));
         
             // gsURL들을 HTTP URL로 변환
             const updatedMarkersData = await Promise.all(
                 markersData.map(async markerData => {
                     if (markerData && markerData.data && markerData.data.mediaURL && Array.isArray(markerData.data.mediaURL)) {
                         const httpURLs = await fetchMediaURLs(markerData.data.mediaURL);
-                        return { ...markerData, data: { ...markerData.data, mediaURL: httpURLs } };
+                        return { ...markerData, data: { ...markerData.data, mediaURL: httpURLs }};
                     }
                     return markerData;
                 })
@@ -391,10 +407,13 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
 
                     setFormData({ 
                         ...markerData.data, 
+                        chatid: markerData.chatid,
                         position: { lat, lng }, 
                         userId: markerData.userId,
                         mediaURL: mediaURLs, // 배열로 설정
-                        createdAt: markerData.createdAt
+                        createdAt: markerData.createdAt,
+                        email: markerData.email,
+                        currentemail: markerData.currentemail
                     });
 
                     setFormState(prevState => ({
@@ -410,12 +429,15 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                         payload: { 
                             id: markerData.id, 
                             markerObject: marker, 
-                            data: markerData.data, 
+                            data: markerData.data,
+                            chatid: markerData.chatid, 
                             position: markerData.position, 
                             overlay: customOverlay, 
                             userId: markerData.userId,
                             mediaURL: mediaURLs,
-                            createdAt: markerData.createdAt
+                            createdAt: markerData.createdAt,
+                            email: markerData.email,
+                            currentemail: markerData.currentemail
                         }
                     });                
                 });
@@ -424,11 +446,14 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                     id: markerData.id, 
                     markerObject: marker, 
                     data: markerData.data, 
+                    chatid: markerData.chatid,
                     position: markerData.position, 
                     overlay: customOverlay, 
                     userId: markerData.userId,
                     mediaURL: mediaURLs,
-                    createdAt: markerData.createdAt
+                    createdAt: markerData.createdAt,
+                    email: markerData.email,
+                    currentemail: markerData.currentemail
                 };
             }).filter(marker => marker.id); // 필터링하여 빈 객체 제거
 
@@ -453,86 +478,38 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         }
     }, [state.showForm]);
 
-    const updateVisibleMarkersOnMap = (visibleMarkers) => {
-        // 모든 마커와 오버레이의 지도 표시를 해제
-        markersRef.current.forEach(markerRef => {
-            if (markerRef && typeof markerRef.markerObject.setMap === 'function') {
-                markerRef.markerObject.setMap(null);
-            }
-            if (markerRef.overlay) {
-                markerRef.overlay.setMap(null);
-            }
-        });
-        markersRef.current = []; // 기존 마커들을 초기화
-    
-        // 필터링된 마커들을 지도에 추가
-        visibleMarkers.forEach(marker => {
-            if (marker && typeof marker.markerObject.setMap === 'function') {
-                marker.markerObject.setMap(mapRef.current);
-                if (marker.overlay) {
-                    marker.overlay.setMap(mapRef.current);
-                }
-            }
-            markersRef.current.push(marker);
-        });
-    };
-    
-    //1. 키워드로 검색
-    const handleSearch = () => {
-        const allMarkers = state.allMarkers;
-    
-        const filteredMarkers = allMarkers.filter(markerData => {
-            const { title, content } = markerData.data;
-            
-            return title.includes(searchKeyword) || content.includes(searchKeyword);
-        });
-    
-        dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: filteredMarkers });
-        updateVisibleMarkersOnMap(filteredMarkers); // 필터링된 마커들을 지도에 업데이트
-    };
-    
-    //2. 카테고리로 검색
-    const handleCategorySearch = () => {
-        const allMarkers = state.allMarkers;
-    
-        const filteredMarkers = allMarkers.filter(markerData => {
-            const { category } = markerData.data;
-            
-            return !searchCategory || category === searchCategory;
-        });
-    
-        dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: filteredMarkers });
-        updateVisibleMarkersOnMap(filteredMarkers); // 필터링된 마커들을 지도에 업데이트
-    };
-    
-    //3. 내 마커만 검색
-    const handleMyMarkersSearch = () => {
-        const allMarkers = state.allMarkers;
-    
-        const filteredMarkers = allMarkers.filter(markerData => markerData.userId === user.uid);
-    
-        dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: filteredMarkers });
-        updateVisibleMarkersOnMap(filteredMarkers); // 필터링된 마커들을 지도에 업데이트
-    };
-    
-    const handleMarkerSearchToggle = () => {
-        if (showOnlyMyMarkers) {
-            // 현재 '내 마커만 검색' 기능이 활성화된 상태
-            // 모든 마커를 다시 표시
-            dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: state.allMarkers });
-        } else {
-            // '내 마커만 검색' 기능이 비활성화된 상태
-            // 내 마커만 표시
-            const myMarkers = state.allMarkers.filter(markerData => markerData.userId === user.uid);
-            dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: myMarkers });
-        }
-        setShowOnlyMyMarkers(!showOnlyMyMarkers);
-    };
-
     const handleClose = () => {
         dispatch({ type: actionTypes.TOGGLE_FORM });
     }
 
+    async function createChatroom(chatid) { //마커 생성 시 chatroom도 생성
+        const CREATE_CHATROOM_MUTATION = `
+          mutation CreateChatroom($chatid: String!) {
+            createChatroom(input: { chatid: $chatid }) {
+              chatid
+            }
+          }
+        `;
+      
+        const response = await fetch("http://localhost:4000/", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: CREATE_CHATROOM_MUTATION,
+            variables: {
+              chatid
+            }
+          })
+        });
+      
+        const responseData = await response.json();
+        console.log(responseData);  // 응답 데이터 로깅
+
+        return responseData.data.createChatroom;
+      }
+      
     const registerHandler = async (formState) => {
 
         const { startDate, endDate } = state.formState;
@@ -560,7 +537,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             return;
         }
     
-        const { id, position, userId, createdAt, ...restFormState } = formState;
+        const { id, chatid, position, userId, createdAt, email, ...restFormState } = formState;
         //수정 시 id, position, userId, createdAt이 db상에 중복 필드로 저장되는 걸 방지
 
         // mediaURL 배열에서 undefined 또는 빈 문자열을 제거
@@ -579,10 +556,19 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
 
         if (!editingMarkerId) { 
             // 새로운 마커를 생성하는 경우
+            const UniqueChatId = uuidv4(); // UUID 생성
             newMarker.createdAt = serverTimestamp();
+            newMarker.email = user?.email;
+            newMarker.chatid = UniqueChatId; // UUID를 chatid로 설정
+
+            // chatroom 생성
+            await createChatroom(UniqueChatId);
         } else {
-            // 기존 마커를 수정하는 경우, formData의 createdAt 값을 사용
+            // 기존 마커를 수정하는 경우
+            //formData의 createdAt, email, chatid 값을 사용
             newMarker.createdAt = formData.createdAt;
+            newMarker.email = formData.email;
+            newMarker.chatid = formData.chatid;
         }        
 
         let markerIdToUpdate = editingMarkerId; // 우선 주어진 editingMarkerId로 초기화
@@ -840,6 +826,96 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         loadMarkers();
     }, []);
 
+    const updateVisibleMarkersOnMap = (visibleMarkers) => {
+        // 모든 마커와 오버레이의 지도 표시를 해제
+        markersRef.current.forEach(markerRef => {
+            if (markerRef && typeof markerRef.markerObject.setMap === 'function') {
+                markerRef.markerObject.setMap(null);
+            }
+            if (markerRef.overlay) {
+                markerRef.overlay.setMap(null);
+            }
+        });
+        markersRef.current = []; // 기존 마커들을 초기화
+
+        // 필터링된 마커들을 지도에 추가
+        visibleMarkers.forEach(marker => {
+            if (marker && typeof marker.markerObject.setMap === 'function') {
+                marker.markerObject.setMap(mapRef.current);
+                if (marker.overlay) {
+                    marker.overlay.setMap(mapRef.current);
+                }
+            }
+            markersRef.current.push(marker);
+        });
+    };
+    
+    //1. 키워드로 검색
+    const handleSearch = () => {
+        const allMarkers = state.allMarkers;
+
+        const filteredMarkers = allMarkers.filter(markerData => {
+            const { title, content } = markerData.data;
+
+            return title.includes(searchKeyword) || content.includes(searchKeyword);
+        });
+    
+        dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: filteredMarkers });
+        updateVisibleMarkersOnMap(filteredMarkers); // 필터링된 마커들을 지도에 업데이트
+    };
+    
+    //2. 이메일로 검색
+    const handleEmailSearch = () => {
+        const allMarkers = state.allMarkers;
+    
+        const filteredMarkers = allMarkers.filter(markerData => {
+            const email = markerData.email;
+
+            return email.includes(searchEmail)
+        });
+    
+        dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: filteredMarkers });
+        updateVisibleMarkersOnMap(filteredMarkers); // 필터링된 마커들을 지도에 업데이트
+    };
+
+    //3. 카테고리로 검색
+    const handleCategorySearch = () => {
+        const allMarkers = state.allMarkers;
+    
+        const filteredMarkers = allMarkers.filter(markerData => {
+            const { category } = markerData.data;
+            
+            return !searchCategory || category === searchCategory;
+        });
+    
+        dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: filteredMarkers });
+        updateVisibleMarkersOnMap(filteredMarkers); // 필터링된 마커들을 지도에 업데이트
+    };
+    
+    //4. 내 마커만 검색
+    const handleMyMarkersSearch = () => {
+        const allMarkers = state.allMarkers;
+    
+        const filteredMarkers = allMarkers.filter(markerData => markerData.userId === user.uid);
+    
+        dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: filteredMarkers });
+        updateVisibleMarkersOnMap(filteredMarkers); // 필터링된 마커들을 지도에 업데이트
+    };
+    
+    const handleMarkerSearchToggle = () => {
+        if (showOnlyMyMarkers) {
+            // 현재 '내 마커만 검색' 기능이 활성화된 상태
+            // 모든 마커를 다시 표시
+            dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: state.allMarkers });
+        } else {
+            // '내 마커만 검색' 기능이 비활성화된 상태
+            // 내 마커만 표시
+            const myMarkers = state.allMarkers.filter(markerData => markerData.userId === user.uid);
+            dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: myMarkers });
+        }
+        setShowOnlyMyMarkers(!showOnlyMyMarkers);
+    };
+
     return (
         <div>
             <div id="menu_wrap2" className="bg_white">
@@ -849,13 +925,16 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                     !state.showForm && <button onClick={handlePlaceMarker}>마커 배치하기</button>
                     ) : null }
                 </div>
-                <div id="pagination2">
-                    {/* TODO: Add pagination */}
-                </div>
+                <hr/>
                 <div className="search-keyword">
                     <label>키워드:</label>
                     <input type="text" value={searchKeyword} onChange={e => setSearchKeyword(e.target.value)} />
                     <button onClick={handleSearch}>검색</button>
+                </div>
+                <div className="search-email">
+                    <label>ID:</label>
+                    <input type="text" value={searchEmail} onChange={e => setSearchEmail(e.target.value)} />
+                    <button onClick={handleEmailSearch}>검색</button>
                 </div>
                 <div className="search-category">
                     <label>카테고리:</label>
@@ -878,6 +957,9 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                     </button>
                     ) : null }
                 </div>
+                <div id="pagination2">
+                    {/* TODO: Add pagination */}
+                </div>
             </div>
             {state.showForm && 
             <CustomForm 
@@ -897,7 +979,11 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                 onClose={handleClose}
                 data={formData}
                 formData={formState}
+                chatid={formData.chatid}
+                position={formData.position}
                 createdAt={formData.createdAt}
+                email={formData.email}
+                currentemail={formData.currentemail}
                 initialMode="register"
                 markerId={editingMarkerId}
                 onDelete={handleDelete}

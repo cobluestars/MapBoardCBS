@@ -1,0 +1,125 @@
+* {
+  margin: 0;
+}
+
+/* 기본 모달 스타일 */
+.chat-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 20px;
+  z-index: 10;
+  width: 80%;
+  height: 80%;
+  max-width: 390px;
+  max-height: 600px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 채팅 제목 (가운데 정렬) */
+.chat-modal .chat {
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.chat-list {
+  position: fixed;
+  width: 350px;
+  height: 70%;
+  overflow-y: scroll;
+}
+
+/* 기본 말풍선 스타일 */
+.chatBubble {
+  background: #eee;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 10px;
+  width: 60%;
+  clear: both;
+}
+
+/* 마커 주인 말풍선 스타일 */
+.chatBubble.owner {
+  background: aqua;
+}
+
+/* 현재 사용자 말풍선 스타일 */
+.right {
+  text-align: right;
+  float: right;
+}
+
+/* 다른 사용자 말풍선 스타일 */
+.left {
+  text-align: left;
+  float: left;
+}
+
+/* 시간 스타일 */
+.timestamp {
+  font-size: 0.8em;
+  color: darkblue;
+  margin-top: 5px;
+  float: right;
+}
+
+.chat-bottom {
+  position: relative;
+  top: 80%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 메시지 입력창 스타일 */
+.chatInput {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  position: relative; /* 버튼의 위치를 기준으로 설정 */
+}
+
+.chatInput input {
+  flex-grow: 1;
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  margin-right: 5px;
+}
+
+/* 전송 버튼 스타일 */
+.chatInput button {
+  background: #007BFF;
+  color: white;
+  border: none;
+  padding: 5px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.chatInput button:hover {
+  background: #0056b3;
+}
+
+/* 닫기 버튼 스타일 */
+.closebutton1 {
+  display: block;
+  margin: 15px auto 0;
+  background: #ccc;
+  color: black;
+  border: none;
+  padding: 5px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.closebutton1:hover {
+  background: #aaa;
+}
