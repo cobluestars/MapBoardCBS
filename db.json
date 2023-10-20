@@ -1,30 +1,5 @@
 {
-  "markers": [
-    {
-      "chatid": "35723c0b-8fe9-4d85-845e-699d994aa221",
-      "data": {
-        "mediaURL": [
-          "https://firebasestorage.googleapis.com/v0/b/mapboard-35c14.appspot.com/o/uploads%2FCalabi-Yau-alternate.png?alt=media&token=23a63287-92e3-4b2e-9c9b-a360d3f440ec",
-          "https://firebasestorage.googleapis.com/v0/b/mapboard-35c14.appspot.com/o/uploads%2FFoyM7ZHWcA0BhKf.jfif?alt=media&token=951a435a-1069-4039-a875-258dbbd240e8"
-        ],
-        "endDate": "2023-10-20T15:40",
-        "title": "test1",
-        "category": "프리랜서",
-        "content": "test1",
-        "startDate": "2023-10-16T15:40"
-      },
-      "position": {
-        "lng": 126.9832469945753,
-        "lat": 37.57040189670425
-      },
-      "userId": "CUJRFXx6AleBkL1ih2xTQNRhewD2",
-      "email": "fireredstars@gmail.com",
-      "createdAt": {
-        "_seconds": 1697438423,
-        "_nanoseconds": 929000000
-      }
-    }
-  ],
+  "markers": [],
   "users": [
     {
       "uid": "4DvTyNRgmVP3hQ17rlITnqUUvj33",
@@ -75,56 +50,42 @@
   ],
   "chatrooms": [
     {
-      "chatid": "35723c0b-8fe9-4d85-845e-699d994aa221",
-      "currentemail": "fireredstars@gmail.com",
-      "email": "fireredstars@gmail.com",
-      "messages": [
-        {
-          "senderEmail": "cobaltbluestars@gmail.com",
-          "text": "Hello World!",
-          "sendAt": "2023-10-16, 17:40:00"
-        },
-        {
-          "senderEmail": "fireredstars@gmail.com",
-          "text": "lalala!",
-          "sendAt": "2023-10-16, 17:41:00"
-        },
-        {
-          "senderEmail": "fireredstars@gmail.com",
-          "text": "1",
-          "sendAt": "2023-10-16T22:14:50.829Z"
-        },
-        {
-          "senderEmail": "fireredstars@gmail.com",
-          "text": "test",
-          "sendAt": "2023-10-16T22:47:15.619Z"
-        },
-        {
-          "senderEmail": "fireredstars@gmail.com",
-          "text": "ㅁㅁㅁ",
-          "sendAt": "2023-10-17T00:52:38.536Z"
-        },
-        {
-          "senderEmail": "fireredstars@gmail.com",
-          "text": "111",
-          "sendAt": "2023-10-17T00:58:45.760Z"
-        },
-        {
-          "senderEmail": "fireredstars@gmail.com",
-          "text": "11123",
-          "sendAt": "2023-10-17T02:09:30.570Z"
-        }
-      ]
+      "chatid": "0af14bd2-8c0a-40d1-9b6c-314d15486149",
+      "currentemail": "",
+      "email": "",
+      "messages": []
     },
     {
-      "chatid": "e35c1383-47ff-4d12-825d-938b6044c9eb",
+      "chatid": "6b3e0368-ddfb-4ad9-aefb-c93077942193",
       "currentemail": "",
       "email": "",
       "messages": [
         {
           "senderEmail": "fireredstars@gmail.com",
-          "text": "1",
-          "sendAt": "2023-10-17T00:35:26.458Z"
+          "text": "hello world!",
+          "sendAt": "2023-10-20T07:10:03.396+09:00"
+        },
+        {
+          "senderEmail": "fireredstars@gmail.com",
+          "text": "ABC",
+          "sendAt": "2023-10-20T07:11:10.011+09:00"
+        },
+        {
+          "senderEmail": "cobaltbluestars@gmail.com",
+          "text": "hi",
+          "sendAt": "2023-10-20T07:14:12.499+09:00"
+        }
+      ]
+    },
+    {
+      "chatid": "ead130ac-5c02-440e-a83c-383999eab386",
+      "currentemail": "",
+      "email": "",
+      "messages": [
+        {
+          "senderEmail": "cobaltbluestars@gmail.com",
+          "text": "abc",
+          "sendAt": "2023-10-20T08:49:27.251+09:00"
         }
       ]
     }

@@ -24,6 +24,20 @@ const createChatroomInDB = (chatid) => {
     return newChatroom;
 };
 
+const deleteChatroomFromDB = (chatid) => {
+    //채팅방 존재 확인
+    const index = data.chatrooms.findIndex(room => room.chatid === chatid);
+    if (index === -1) {
+        throw new Error(`Chatroom with id ${chatid} not found.`);
+    }
+
+    //채팅방 삭제
+    const deletedChatroom = data.chatrooms.splice(index, 1)[0];
+    fs.writeFileSync('./db.json', JSON.stringify(data, null, 2));
+    return deletedChatroom;
+};
+
+
 const typeDefs = gql`
 type Message {
     senderEmail: String!
@@ -55,6 +69,7 @@ input MessageInputType {
 type Mutation {
     addMessage(chatid: String!, message: MessageInputType!): Message!
     createChatroom(input: CreateChatroomInput!): Chatroom!
+    deleteChatroom(chatid: String!): Chatroom!
 }
 
 input CreateChatroomInput {
@@ -98,6 +113,9 @@ const resolvers = {
         },
         createChatroom: (_, { input }) => {
             return createChatroomInDB(input.chatid);
+        },
+        deleteChatroom: (_, { chatid }) => {
+            return deleteChatroomFromDB(chatid);
         }
     } 
 };
@@ -106,3 +124,5 @@ const server = new ApolloServer({ typeDefs, resolvers });
 server.listen().then(({ url }) => {
     console.log(`🚀 Server ready at ${url}`);
 });
+
+//추후 db.json(json-server)와 apollo server간의 연동 해제하기

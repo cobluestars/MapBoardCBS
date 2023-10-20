@@ -2,6 +2,7 @@ import React from 'react';
 import './ChatModal.css';
 import { useQuery, useMutation } from '@apollo/client';
 import gql from 'graphql-tag';
+import { DateTime } from 'luxon';   //신뢰할 만한 타임스탬프
 
 const GET_MESSAGES = gql`
   query GetMessages($chatid: String!) {
@@ -41,7 +42,8 @@ function ChatInput({ onSendMessage, currentemail }) {
 
   const handleSend = () => {
     if (message.trim()) {
-      const currentTimestamp = new Date().toISOString();
+      const now = DateTime.now();
+      const currentTimestamp = now;
       onSendMessage({
         senderEmail: currentemail,
         text: message,

@@ -6,6 +6,8 @@ import { doc, getDocs, updateDoc, getDoc, deleteDoc, collection, query, where, g
 import './CustomForm.css';
 import ChatModal from './ChatModal';
 
+import { DateTime } from 'luxon';   //신뢰할 만한 타임스탬프
+
 const db = getFirestore();
 
 const CustomForm = ({
@@ -23,7 +25,7 @@ const CustomForm = ({
   position,
   createdAt,
   email,
-  currentemail  
+  currentemail
 }) => {
 
   const initialState = {
@@ -205,6 +207,40 @@ const CustomForm = ({
       setActiveUploadTasks(currentUploadTasks);  // 마지막에 상태 업데이트
       setMediaURLs(urls);
       return urls;
+  };
+
+  const TimeLeftDisplay = ({ createdAt = { seconds: 0 } }) => {
+    const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
+    const ONE_MONTH_IN_MS = 30 * ONE_DAY_IN_MS;
+
+    const currentTime = DateTime.now().toMillis();
+    const createdAtMs = createdAt.seconds * 1000;
+    const initialTimeLeft = ONE_MONTH_IN_MS - (currentTime - createdAtMs);
+
+    const [timeLeft, setTimeLeft] = useState(initialTimeLeft);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setTimeLeft(prevTime => prevTime - 1000);
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, []);
+
+    const daysLeft = Math.floor(timeLeft / ONE_DAY_IN_MS);
+    const hoursLeft = Math.floor((timeLeft % ONE_DAY_IN_MS) / (60 * 60 * 1000));
+    const minutesLeft = Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000));
+    const secondsLeft = Math.floor((timeLeft % (60 * 1000)) / 1000);
+
+    if (timeLeft <= 0) {
+      return <div style={{ color: 'red' }}>처리 대기 중인 마커입니다.</div>;
+    }
+
+    return (
+        <div style={{ color: daysLeft <= 7 ? 'red' : 'black' }}>
+            등록한 마커는 {daysLeft}일 {hoursLeft}시간 {minutesLeft}분 {secondsLeft}초 후에 삭제됩니다.
+        </div>
+    );
   };
 
   /**
@@ -467,13 +503,12 @@ const CustomForm = ({
       return;
     }
 
-      try {
-        
-        let mediaURLs = formData.mediaURL || []; // 기본 값을 빈 배열로 설정
-        // formData.mediaURL이 배열이 아니라면 배열로 변환
-        if (!Array.isArray(mediaURLs)) {
-            mediaURLs = [mediaURLs];
-        }
+    try {      
+      let mediaURLs = formData.mediaURL || []; // 기본 값을 빈 배열로 설정
+      // formData.mediaURL이 배열이 아니라면 배열로 변환
+      if (!Array.isArray(mediaURLs)) {
+          mediaURLs = [mediaURLs];
+      }
 
       // 파일 업로드 함수 호출
       const newMediaURLs = await uploadMedias();
@@ -505,6 +540,7 @@ const CustomForm = ({
 
       // Firestore에서 임시 마커의 위치 데이터를 삭제
       await deleteTempMarkerPosition();
+
     } catch (error) {
       console.error('Error during registration or update:', error);
     }
@@ -556,6 +592,7 @@ const CustomForm = ({
                 <p>{new Date(createdAt.seconds * 1000).toLocaleString()}</p>
             </div>
           )}
+          <TimeLeftDisplay createdAt={createdAt} />
           <hr className='hr2'/>
           <div>
               <label className='email'>ID</label>
@@ -569,7 +606,11 @@ const CustomForm = ({
                   <button onClick={() => onDelete(markerId)}>삭제</button>
               </>
           )}
-          <button onClick={handleChatModalOpen}>댓글</button>
+          {user && (
+            <>
+                 <button onClick={handleChatModalOpen}>댓글</button>
+            </>
+          )}
           <ChatModal 
               isOpen={isChatModalOpen} 
               onClose={handleChatModalClose}

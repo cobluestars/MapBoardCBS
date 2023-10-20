@@ -24,6 +24,7 @@ import cleaningImage from '../icon/icons8-청소-50.png';
 import insuranceAgentImage from '../icon/icons8-insurance-agent-50.png';
 
 import { v4 as uuidv4 } from 'uuid'; // chatid
+import { DateTime } from 'luxon';   //신뢰할 만한 타임스탬프
 
 import gql from 'graphql-tag';
 
@@ -46,6 +47,7 @@ const initialState = {
     },
     tempMarker: null,
     createdAt: null,
+    expiryDate: null,
     chatid: null
 };
 
@@ -275,9 +277,14 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         });
         // 컴포넌트 unmount 시 unsubscribe
         return () => unsubscribe();
-    }, []);
+    }, []);    
     
-    
+    if (user) {
+        console.log(user.email);
+    } else {
+        console.log("User is not logged in.");
+    }    
+
     const [showEditFeatures, setShowEditFeatures] = useState(false);
 
     function enableMarkerEditingFeatures() {
@@ -412,6 +419,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                         userId: markerData.userId,
                         mediaURL: mediaURLs, // 배열로 설정
                         createdAt: markerData.createdAt,
+                        expiryDate: markerData.expiryDate,
                         email: markerData.email,
                         currentemail: markerData.currentemail
                     });
@@ -436,6 +444,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                             userId: markerData.userId,
                             mediaURL: mediaURLs,
                             createdAt: markerData.createdAt,
+                            expiryDate: markerData.expiryDate,
                             email: markerData.email,
                             currentemail: markerData.currentemail
                         }
@@ -452,6 +461,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                     userId: markerData.userId,
                     mediaURL: mediaURLs,
                     createdAt: markerData.createdAt,
+                    expiryDate: markerData.expiryDate,
                     email: markerData.email,
                     currentemail: markerData.currentemail
                 };
@@ -508,8 +518,36 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         console.log(responseData);  // 응답 데이터 로깅
 
         return responseData.data.createChatroom;
-      }
+    }
       
+    async function deleteChatroom(chatid) {//마커 삭제(chatid 삭제) 시 채팅방도 삭제
+        const DELETE_CHATROOM_MUTATION = `
+          mutation DeleteChatroom($chatid: String!) {
+            deleteChatroom(chatid: $chatid) {
+              chatid
+            }
+          }
+        `;
+      
+        const response = await fetch("http://localhost:4000/", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: DELETE_CHATROOM_MUTATION,
+            variables: {
+              chatid
+            }
+          })
+        });
+      
+        const responseData = await response.json();
+        console.log(responseData);  // 응답 데이터 로깅
+      
+        return responseData.data.deleteChatroom;
+    }
+
     const registerHandler = async (formState) => {
 
         const { startDate, endDate } = state.formState;
@@ -537,8 +575,8 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             return;
         }
     
-        const { id, chatid, position, userId, createdAt, email, ...restFormState } = formState;
-        //수정 시 id, position, userId, createdAt이 db상에 중복 필드로 저장되는 걸 방지
+        const { id, chatid, position, userId, createdAt, email, expiryDate, ...restFormState } = formState;
+        //수정 시 id, position, userId, createdAt,email, expiryDate가 db상에 중복 필드로 저장되는 걸 방지
 
         // mediaURL 배열에서 undefined 또는 빈 문자열을 제거
         restFormState.mediaURL = restFormState.mediaURL.filter(url => url);
@@ -558,15 +596,17 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             // 새로운 마커를 생성하는 경우
             const UniqueChatId = uuidv4(); // UUID 생성
             newMarker.createdAt = serverTimestamp();
+            newMarker.expiryDate = DateTime.now().plus({ days: 30 }).toJSDate(); // 마커의 만료일 설정
             newMarker.email = user?.email;
             newMarker.chatid = UniqueChatId; // UUID를 chatid로 설정
-
+    
             // chatroom 생성
             await createChatroom(UniqueChatId);
         } else {
             // 기존 마커를 수정하는 경우
-            //formData의 createdAt, email, chatid 값을 사용
+            //formData의 createdAt, expiryDate, email, chatid 값을 사용
             newMarker.createdAt = formData.createdAt;
+            newMarker.expiryDate = formData.expiryDate;
             newMarker.email = formData.email;
             newMarker.chatid = formData.chatid;
         }        
@@ -627,9 +667,11 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         }
     };    
 
-    const handleDelete = async (id) => {
-        const isConfirmed = window.confirm('정말로 삭제하시겠습니까?');
-        if (!isConfirmed) return;
+    const handleDelete = async (id, isAutoDelete = false) => {
+        if (!isAutoDelete) {  // 자동 삭제가 아닌 경우에만 알림창 표시
+            const isConfirmed = window.confirm('정말로 삭제하시겠습니까?');
+            if (!isConfirmed) return;
+        }
     
         try {
             const firebaseMarkersRef = collection(db, 'markers');
@@ -645,6 +687,9 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             }
     
             const markerToDelete = markersRef.current.find(marker => marker.id === id);
+            if (markerToDelete && markerToDelete.chatid) {
+              await deleteChatroom(markerToDelete.chatid);  // 채팅룸 삭제
+            }
             if (markerToDelete) {
                 markerToDelete.markerObject.setMap(null);
                 if (markerToDelete.overlay) {
@@ -685,7 +730,22 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             alert('삭제 중 오류가 발생했습니다.');
         }
     };
-          
+
+    // 1시간 주기로 마커 생성 이후 30일이 지났는지 검사하는 로직
+    setInterval(async () => {
+        const markersRef = collection(db, 'markers');
+        const allMarkersSnapshot = await getDocs(markersRef);
+
+        allMarkersSnapshot.docs.forEach(async doc => {
+            const markerData = doc.data();
+            const markerExpiryDate = DateTime.fromJSDate(markerData.expiryDate);
+
+            if (DateTime.now() > markerExpiryDate) {
+                handleDelete(doc.id, true);  // 자동 삭제 플래그 설정하여 호출
+            }
+        });
+    }, 60 * 60 * 1000);  // 매 시간마다 한 번씩 검사
+            
     const placeMarker = (event) => {
         if (prevClickedMarker) {
             prevClickedMarker.setImage(originalMarkerImage);
@@ -987,7 +1047,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                 initialMode="register"
                 markerId={editingMarkerId}
                 onDelete={handleDelete}
-                user={user}  // 여기서 user 객체가 제대로 전달되고 있는지 확인
+                user={user}
                 key={formData.userId} // formData.userId 값이 변경될 때마다 컴포넌트를 다시 렌더링
                 enableEditing={enableMarkerEditingFeatures}
                 showBasicInfo={showBasicMarkerInfo}
