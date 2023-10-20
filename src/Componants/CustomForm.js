@@ -23,6 +23,8 @@ const CustomForm = ({
   showBasicInfo,
   chatid,
   position,
+  roadAddress,
+  jibunAddress,
   createdAt,
   email,
   currentemail
@@ -594,6 +596,11 @@ const CustomForm = ({
           )}
           <TimeLeftDisplay createdAt={createdAt} />
           <hr className='hr2'/>
+          <div>
+            <label className='MarkerAddress'>주소 정보</label>
+            { roadAddress === null ? null : <p>도로명주소: {roadAddress}</p>}
+            <p>지번: {jibunAddress}</p>
+          </div>
           <div>
               <label className='email'>ID</label>
               <p className='emailID'>{email}</p>

@@ -4,6 +4,9 @@ import { useQuery, useMutation } from '@apollo/client';
 import gql from 'graphql-tag';
 import { DateTime } from 'luxon';   //신뢰할 만한 타임스탬프
 
+import { useDispatch } from 'react-redux';
+import { incrementMessageCount } from '../redux/AlertMessageSlice';
+
 const GET_MESSAGES = gql`
   query GetMessages($chatid: String!) {
     chatrooms(chatid: $chatid) {
@@ -27,6 +30,19 @@ const SEND_MESSAGE = gql`
 `;
 
 function ChatBubble({ message, isMine, isOwner, sendAt }) {
+  //redux
+  const dispatch = useDispatch();
+
+  const handleMessage = () => {
+    if (!isMine) {
+      dispatch(incrementMessageCount());
+    }
+  };
+
+  React.useEffect(() => {
+    handleMessage();
+  }, []); // 빈 dependency 배열을 사용하여 컴포넌트 마운트 시 한 번만 실행
+
   return (
     <div className={`chatBubble ${isMine ? 'right' : 'left'} ${isOwner ? 'owner' : ''}`}>
       <p>{message.senderEmail}</p>
@@ -36,6 +52,7 @@ function ChatBubble({ message, isMine, isOwner, sendAt }) {
     </div>
   );
 }
+
 
 function ChatInput({ onSendMessage, currentemail }) {
   const [message, setMessage] = React.useState('');

@@ -18,6 +18,10 @@
     position: relative;
 }
 
+.AlertMessage {
+    color: red;
+}
+
 .close {
     position: absolute;
     right: 10px;

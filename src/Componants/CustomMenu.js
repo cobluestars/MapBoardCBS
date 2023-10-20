@@ -46,6 +46,8 @@ const initialState = {
         mediaURL: []
     },
     tempMarker: null,
+    roadAddress: null,
+    jibunAddress: null,
     createdAt: null,
     expiryDate: null,
     chatid: null
@@ -125,6 +127,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
     const customMenuMarkersRef = useRef([]);
     const [searchKeyword, setSearchKeyword] = useState('');   // 검색할 키워드 상태
     const [searchEmail, setSearchEmail] = useState('');   // 검색할 이메일 상태
+    const [searchAddress, setSearchAddress] = useState('');   // 검색할 주소 상태
     const [searchCategory, setSearchCategory] = useState(''); // 검색할 카테고리 상태
     const [showOnlyMyMarkers, setShowOnlyMyMarkers] = useState(false);
  
@@ -296,6 +299,12 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
     }
 
     const loadMarkers = async () => {
+        // Kakao 지도 API 스크립트가 로드되었는지 확인
+        if (!window.kakao || !window.kakao.maps) {
+            console.error("Kakao maps API has not been loaded");
+            return;
+        }
+        
         // 기존 마커들과 오버레이를 모두 지우기
         markersRef.current.forEach(markerRef => {
             markerRef.markerObject.setMap(null);
@@ -314,7 +323,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         try {
             const markersCollection = collection(db, 'markers');
             const markerSnapshot = await getDocs(markersCollection);
-            const markersData = markerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), currentemail: user && user.email }));
+            const markersData = markerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), currentemail: user?.email }));
         
             // gsURL들을 HTTP URL로 변환
             const updatedMarkersData = await Promise.all(
@@ -415,7 +424,9 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                     setFormData({ 
                         ...markerData.data, 
                         chatid: markerData.chatid,
-                        position: { lat, lng }, 
+                        position: { lat, lng },
+                        roadAddress: markerData.roadAddress,
+                        jibunAddress: markerData.jibunAddress,
                         userId: markerData.userId,
                         mediaURL: mediaURLs, // 배열로 설정
                         createdAt: markerData.createdAt,
@@ -439,7 +450,9 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                             markerObject: marker, 
                             data: markerData.data,
                             chatid: markerData.chatid, 
-                            position: markerData.position, 
+                            position: markerData.position,
+                            roadAddress: markerData.roadAddress,
+                            jibunAddress: markerData.jibunAddress,
                             overlay: customOverlay, 
                             userId: markerData.userId,
                             mediaURL: mediaURLs,
@@ -456,7 +469,9 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                     markerObject: marker, 
                     data: markerData.data, 
                     chatid: markerData.chatid,
-                    position: markerData.position, 
+                    position: markerData.position,
+                    roadAddress: markerData.roadAddress,
+                    jibunAddress: markerData.jibunAddress,
                     overlay: customOverlay, 
                     userId: markerData.userId,
                     mediaURL: mediaURLs,
@@ -478,6 +493,11 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             console.error('Error:', error);
         }
     };
+
+    const { kakao } = window;
+
+    // Geocoder 객체 초기화
+    const geocoder = new window.kakao.maps.services.Geocoder();
 
     useEffect(() => {
         if (!state.showForm) {  // 폼이 닫힐 때
@@ -574,9 +594,27 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             console.error("Position value is missing or undefined");
             return;
         }
-    
-        const { id, chatid, position, userId, createdAt, email, expiryDate, ...restFormState } = formState;
-        //수정 시 id, position, userId, createdAt,email, expiryDate가 db상에 중복 필드로 저장되는 걸 방지
+        
+        // Kakao Maps API를 사용하여 주소 정보를 가져오는 함수
+        const fetchAddressFromCoords = async (coords) => {
+            return new Promise((resolve, reject) => {
+                geocoder.coord2Address(coords.lng, coords.lat, (result, status) => {
+                    if (status === kakao.maps.services.Status.OK) {
+                        const detailAddr = !!result[0].road_address ? result[0].road_address.address_name : null;
+                        const jibunAddr = result[0].address.address_name;
+                        resolve({
+                            roadAddress: detailAddr,
+                            jibunAddress: jibunAddr
+                        });
+                    } else {
+                        reject(new Error("Failed to fetch address"));
+                    }
+                });
+            });
+        }
+
+        const { id, chatid, position, userId, createdAt, email, expiryDate, MarkerAddress, ...restFormState } = formState;
+        //수정 시 id, position, userId, createdAt,email, expiryDate, MarkerAddress가 db상에 중복 필드로 저장되는 걸 방지
 
         // mediaURL 배열에서 undefined 또는 빈 문자열을 제거
         restFormState.mediaURL = restFormState.mediaURL.filter(url => url);
@@ -599,9 +637,14 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             newMarker.expiryDate = DateTime.now().plus({ days: 30 }).toJSDate(); // 마커의 만료일 설정
             newMarker.email = user?.email;
             newMarker.chatid = UniqueChatId; // UUID를 chatid로 설정
-    
+        
             // chatroom 생성
             await createChatroom(UniqueChatId);
+        
+            const addressData = await fetchAddressFromCoords(positionValue);  // 주소 정보를 가져옴
+            newMarker.roadAddress = addressData.roadAddress;  // 가져온 roadAddress 정보를 newMarker에 추가
+            newMarker.jibunAddress = addressData.jibunAddress;  // 가져온 jibunAddress 정보를 newMarker에 추가
+            
         } else {
             // 기존 마커를 수정하는 경우
             //formData의 createdAt, expiryDate, email, chatid 값을 사용
@@ -609,7 +652,9 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             newMarker.expiryDate = formData.expiryDate;
             newMarker.email = formData.email;
             newMarker.chatid = formData.chatid;
-        }        
+            newMarker.roadAddress = formData.roadAddress;
+            newMarker.jibunAddress = formData.jibunAddress;
+        }
 
         let markerIdToUpdate = editingMarkerId; // 우선 주어진 editingMarkerId로 초기화
 
@@ -886,6 +931,18 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         loadMarkers();
     }, []);
 
+    // 지도의 중심과 레벨을 필터링된 마커들을 기준으로 재설정
+    const resetMapBounds = (filteredMarkers) => {
+        const bounds = new kakao.maps.LatLngBounds();
+        
+        filteredMarkers.forEach(markerData => {
+            const position = markerData.markerObject.getPosition();
+            bounds.extend(position);
+        });
+
+        mapRef.current.setBounds(bounds);
+    };
+
     const updateVisibleMarkersOnMap = (visibleMarkers) => {
         // 모든 마커와 오버레이의 지도 표시를 해제
         markersRef.current.forEach(markerRef => {
@@ -908,6 +965,9 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             }
             markersRef.current.push(marker);
         });
+
+        resetMapBounds(visibleMarkers); 
+        // 지도의 중심과 레벨을 필터링된 마커들을 기준으로 재설정
     };
     
     //1. 키워드로 검색
@@ -938,7 +998,21 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         updateVisibleMarkersOnMap(filteredMarkers); // 필터링된 마커들을 지도에 업데이트
     };
 
-    //3. 카테고리로 검색
+    //3. 주소로 검색
+    const handleAddressSearch = () => {
+        const allMarkers = state.allMarkers;
+
+        const filteredMarkers = allMarkers.filter(markerData => {
+            const { roadAddress, jibunAddresst } = markerData.data;
+
+            return roadAddress.includes(searchKeyword) || jibunAddresst.includes(searchKeyword);
+        });
+    
+        dispatch({ type: actionTypes.SET_VISIBLE_MARKERS, payload: filteredMarkers });
+        updateVisibleMarkersOnMap(filteredMarkers); // 필터링된 마커들을 지도에 업데이트
+    };
+
+    //4. 카테고리로 검색
     const handleCategorySearch = () => {
         const allMarkers = state.allMarkers;
     
@@ -952,7 +1026,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
         updateVisibleMarkersOnMap(filteredMarkers); // 필터링된 마커들을 지도에 업데이트
     };
     
-    //4. 내 마커만 검색
+    //5. 내 마커만 검색
     const handleMyMarkersSearch = () => {
         const allMarkers = state.allMarkers;
     
@@ -995,6 +1069,11 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                     <label>ID:</label>
                     <input type="text" value={searchEmail} onChange={e => setSearchEmail(e.target.value)} />
                     <button onClick={handleEmailSearch}>검색</button>
+                </div>
+                <div className="search-Address">
+                    <label>주소:</label>
+                    <input type="text" value={searchAddress} onChange={e => setSearchAddress(e.target.value)} />
+                    <button onClick={handleSearch}>검색</button>
                 </div>
                 <div className="search-category">
                     <label>카테고리:</label>
@@ -1041,6 +1120,8 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                 formData={formState}
                 chatid={formData.chatid}
                 position={formData.position}
+                roadAddress={formData.roadAddress}
+                jibunAddress={formData.jibunAddress}
                 createdAt={formData.createdAt}
                 email={formData.email}
                 currentemail={formData.currentemail}

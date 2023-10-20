@@ -5,6 +5,9 @@ import { db } from './firebase';
 import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
 import './Auth.css'
 
+import { useSelector, useDispatch } from 'react-redux';
+import { resetMessageCount } from '../redux/AlertMessageSlice';
+
 function Auth() {
     // 회원가입/로그인/로그아웃
     const [user, setUser] = useState(null);
@@ -15,6 +18,13 @@ function Auth() {
     const [contact, setContact] = useState('');  // 연락처
     const [address, setAddress] = useState('');  // 주소
         
+    const AlertMessage = useSelector(state => state.AlertMessage.value);    //댓글 달릴 경우 알림
+    const dispatch = useDispatch();
+    
+    const handleReset = () => {     //알림 메세지 리셋
+      dispatch(resetMessageCount());
+    };
+
     // 회원가입 함수
     const signUp = async () => {
         try {
@@ -103,6 +113,11 @@ function Auth() {
                     <span>Logged in as {user.email}</span>
                     <button onClick={signOutUser}>로그아웃</button>
                     <button onClick={() => setShowModal(true)}>회원정보</button>
+                    {AlertMessage && 
+                        <p className='AlertMessage' onClick={handleReset}>
+                        {AlertMessage}
+                        </p>
+                    }
                 </>
             ) : (
                 <>

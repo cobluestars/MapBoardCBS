@@ -36,7 +36,7 @@ body.marker-cursor {
     margin: 5px 0;
 }
 
-.title, .content, .mediaURL, .category, .startDate, .endDate, .createdAt, .email {
+.title, .content, .mediaURL, .category, .startDate, .endDate, .createdAt, .email, .MarkerAddress {
     margin: 3px 0;
     font-weight: 700;
 }

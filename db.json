@@ -50,44 +50,16 @@
   ],
   "chatrooms": [
     {
-      "chatid": "0af14bd2-8c0a-40d1-9b6c-314d15486149",
+      "chatid": "e446119f-082d-4183-82fb-bc0c18e647f0",
       "currentemail": "",
       "email": "",
       "messages": []
     },
     {
-      "chatid": "6b3e0368-ddfb-4ad9-aefb-c93077942193",
+      "chatid": "a88927ce-ae6c-4f31-b5d2-d1f901ecc75f",
       "currentemail": "",
       "email": "",
-      "messages": [
-        {
-          "senderEmail": "fireredstars@gmail.com",
-          "text": "hello world!",
-          "sendAt": "2023-10-20T07:10:03.396+09:00"
-        },
-        {
-          "senderEmail": "fireredstars@gmail.com",
-          "text": "ABC",
-          "sendAt": "2023-10-20T07:11:10.011+09:00"
-        },
-        {
-          "senderEmail": "cobaltbluestars@gmail.com",
-          "text": "hi",
-          "sendAt": "2023-10-20T07:14:12.499+09:00"
-        }
-      ]
-    },
-    {
-      "chatid": "ead130ac-5c02-440e-a83c-383999eab386",
-      "currentemail": "",
-      "email": "",
-      "messages": [
-        {
-          "senderEmail": "cobaltbluestars@gmail.com",
-          "text": "abc",
-          "sendAt": "2023-10-20T08:49:27.251+09:00"
-        }
-      ]
+      "messages": []
     }
   ]
 }
