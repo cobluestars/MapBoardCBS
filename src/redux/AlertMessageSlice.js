@@ -23,6 +23,6 @@ export const AlertMessageSlice = createSlice({
   },
 });
 
-export const { setAlertMessage, incrementMessageCount, resetMessageCount } = AlertMessageSlice.actions;
+export const { addNewAlertMessage, incrementMessageCount, resetMessageCount } = AlertMessageSlice.actions;
 
 export default AlertMessageSlice.reducer;

@@ -1,7 +1,21 @@
 const fs = require('fs');
-const { ApolloServer, gql } = require('apollo-server');
+const express = require('express');
+const { gql } = require('apollo-server');
+const cors = require('cors');
+
+const { SubscriptionServer } = require('subscriptions-transport-ws');
+const { execute, subscribe } = require('graphql');
+const { makeExecutableSchema } = require('@graphql-tools/schema');
+
+const ws = require('ws');
+const http = require('http');
+const { ApolloServer } = require('apollo-server-express');
 
 const data = JSON.parse(fs.readFileSync('./db.json', 'utf-8'));
+const { PubSub } = require('graphql-subscriptions');
+const pubsub = new PubSub();
+
+const NEW_MESSAGE = 'NEW_MESSAGE';
 
 const createChatroomInDB = (chatid) => {
     // 채팅방이 이미 있는지 확인
@@ -56,10 +70,6 @@ type Query {
     chatrooms(chatid: String): [Chatroom]
 }
 
-type Mutation {
-  addMessage(chatid: String!, message: MessageInputType!): Message!
-}
-
 input MessageInputType {
   senderEmail: String!
   text: String!
@@ -74,6 +84,10 @@ type Mutation {
 
 input CreateChatroomInput {
     chatid: String!
+}
+
+type Subscription {
+    newMessage(chatid: String!): Message!
 }
 `;
 
@@ -108,21 +122,71 @@ const resolvers = {
         }
     },
     Mutation: {
-        addMessage: (_, { chatid, message }) => {
-            return addMessageToDB(chatid, message);
-        },
         createChatroom: (_, { input }) => {
             return createChatroomInDB(input.chatid);
         },
         deleteChatroom: (_, { chatid }) => {
             return deleteChatroomFromDB(chatid);
+        },
+        addMessage: (_, { chatid, message }) => {
+            const newMessage = addMessageToDB(chatid, message);
+            const channel = `NEW_MESSAGE_${chatid}`;  // chatid별로 고유한 채널 이름 생성
+            pubsub.publish(channel, { newMessage: newMessage, chatid: chatid });
+            return newMessage;
         }
-    } 
+    },
+    Subscription: {
+        newMessage: {
+            subscribe: (_, { chatid }) => {
+                const channel = `NEW_MESSAGE_${chatid}`;  // chatid별로 고유한 채널 이름 생성
+                return pubsub.asyncIterator([channel]);
+            }
+        }
+    }
 };
 
-const server = new ApolloServer({ typeDefs, resolvers });
-server.listen().then(({ url }) => {
-    console.log(`🚀 Server ready at ${url}`);
-});
+  const executableSchema = makeExecutableSchema({
+    typeDefs,
+    resolvers
+  });
 
+  const app = express();
+  const corsOptions = {
+    origin: ['http://localhost:3000','https://studio.apollographql.com'],  // 클라이언트 주소
+    credentials: true
+  };
+  
+  app.use(cors(corsOptions));
+  
+  const server = new ApolloServer({
+    schema: executableSchema,
+    subscriptions: {
+      onConnect: () => console.log('Connected to websocket'),
+    },
+  });
+    
+  // Apollo Server 시작
+  server.start().then(() => {
+    server.applyMiddleware({ app });
+  
+    const httpServer = http.createServer(app);
+  
+    httpServer.listen({ port: 4000 }, () => {
+      console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`);
+      console.log(`🚀 Subscriptions ready at ws://localhost:4000/graphql`);
+    });
+
+    SubscriptionServer.create(
+        {
+            schema: executableSchema,
+            execute,
+            subscribe,
+        },
+        {
+            server: httpServer,
+            path: server.graphqlPath,
+        }
+    );
+});
+  
 //추후 db.json(json-server)와 apollo server간의 연동 해제하기

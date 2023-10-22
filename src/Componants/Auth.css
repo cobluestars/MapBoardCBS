@@ -18,7 +18,7 @@
     position: relative;
 }
 
-.AlertMessage {
+.AlertValue {
     color: red;
 }
 
@@ -28,3 +28,29 @@
     top: 10px;
     cursor: pointer;
 }
+
+/* 메세지 모달창 전체 배경 */
+.modalBackdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1500;
+  }
+  
+  /* 메세지 모달창 내부 컨텐츠 */
+  .messageListModal {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 80%;
+    max-height: 80%;
+    overflow-y: auto;
+    z-index: 2000;
+  }
+  

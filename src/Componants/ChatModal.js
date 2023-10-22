@@ -1,11 +1,42 @@
 import React from 'react';
 import './ChatModal.css';
-import { useQuery, useMutation } from '@apollo/client';
 import gql from 'graphql-tag';
+import { useQuery, useMutation, useSubscription } from '@apollo/client';
+import { WebSocketLink } from "@apollo/client/link/ws";
+
 import { DateTime } from 'luxon';   //신뢰할 만한 타임스탬프
 
 import { useDispatch } from 'react-redux';
-import { incrementMessageCount } from '../redux/AlertMessageSlice';
+import { addNewAlertMessage } from '../redux/AlertMessageSlice';
+
+import { ApolloClient, InMemoryCache, split, HttpLink } from '@apollo/client';
+import { getMainDefinition } from '@apollo/client/utilities';
+
+const httpLink = new HttpLink({
+  uri: 'http://localhost:4000/graphql', // GraphQL 서버 http endpoint
+});
+
+const wsLink = new WebSocketLink({
+  uri: `ws://localhost:4000/graphql`,
+  options: {
+      reconnect: true
+  }
+});
+
+const client = new ApolloClient({
+  link: split(
+    ({ query }) => {
+      const definition = getMainDefinition(query);
+      return (
+        definition.kind === 'OperationDefinition' &&
+        definition.operation === 'subscription'
+      );
+    },
+    wsLink,
+    httpLink
+  ),
+  cache: new InMemoryCache(),
+});
 
 const GET_MESSAGES = gql`
   query GetMessages($chatid: String!) {
@@ -29,30 +60,32 @@ const SEND_MESSAGE = gql`
   }
 `;
 
-function ChatBubble({ message, isMine, isOwner, sendAt }) {
-  //redux
-  const dispatch = useDispatch();
-
-  const handleMessage = () => {
-    if (!isMine) {
-      dispatch(incrementMessageCount());
+const NEW_MESSAGE_SUBSCRIPTION = gql`
+  subscription NewMessage($chatid: String!) {
+    newMessage(chatid: $chatid) {
+      senderEmail
+      text
+      sendAt
     }
-  };
+  }
+`;
 
-  React.useEffect(() => {
-    handleMessage();
-  }, []); // 빈 dependency 배열을 사용하여 컴포넌트 마운트 시 한 번만 실행
+export const ChatBubble = React.memo( function ChatBubble({ senderEmail, text, sendAt, isMine, isOwner }) {
+
+  if (!senderEmail || !text || !sendAt ) {
+    // 하나라도 값이 없으면 null 반환
+    return null;
+  }
 
   return (
     <div className={`chatBubble ${isMine ? 'right' : 'left'} ${isOwner ? 'owner' : ''}`}>
-      <p>{message.senderEmail}</p>
+      <p>{senderEmail}</p>
       {isOwner && <span>마커 주인</span>}
-      <div>{message.text}</div>
+      <div>{text}</div>
       <div className="timestamp">{sendAt}</div>
     </div>
   );
-}
-
+});
 
 function ChatInput({ onSendMessage, currentemail }) {
   const [message, setMessage] = React.useState('');
@@ -77,11 +110,11 @@ function ChatInput({ onSendMessage, currentemail }) {
   );
 }
 
-const ChatModal = ({ isOpen, currentemail, markerOwnerEmail, onClose, chatid }) => {
+const ChatModal = ({ isOpen, currentemail, markerOwnerEmail, onClose, chatid, roadAddress, jibunAddress }) => {
 
   const { data, loading, error } = useQuery(GET_MESSAGES, {
     variables: { chatid },
-    fetchPolicy: "cache-and-network"
+    fetchPolicy: "network-only" 
   });
 
   const [localMessages, setLocalMessages] = React.useState([]);
@@ -89,13 +122,62 @@ const ChatModal = ({ isOpen, currentemail, markerOwnerEmail, onClose, chatid }) 
     setLocalMessages(data?.chatrooms[0]?.messages || []);
   }, [data]);
 
-  const [sendMessage] = useMutation(SEND_MESSAGE, {
-    onCompleted: (newMessageData) => {
-      const newMessage = newMessageData.addMessage;
-      setLocalMessages(prevMessages => [...prevMessages, newMessage]);
-    }
-  });
+  const chatListRef = React.useRef(null);
 
+  const scrollToBottom = () => {
+    if (chatListRef.current) {
+      chatListRef.current.scrollTop = chatListRef.current.scrollHeight;
+    }
+  };
+
+  React.useEffect(() => {
+    scrollToBottom();
+  }, [localMessages]);
+
+  const dispatch = useDispatch();
+
+  const [sendMessage] = useMutation(SEND_MESSAGE, {
+      onCompleted: (newMessageData) => {
+        const newMessage = newMessageData.addMessage;
+
+        // 메시지가 내 메시지가 아니면서 모든 값이 있을 경우 알림 메시지를 추가
+        if (newMessage.senderEmail !== currentemail) {
+          dispatch(addNewAlertMessage({
+            senderEmail: newMessage.senderEmail,
+            text: newMessage.text,
+            sendAt: newMessage.sendAt,
+            roadAddress,
+            jibunAddress
+          }));
+        }
+  
+        setLocalMessages(prevMessages => {
+          const isDuplicate = prevMessages.some(msg => msg.sendAt === newMessage.sendAt && msg.senderEmail === newMessage.senderEmail);
+          if (isDuplicate) return prevMessages;  // 중복 메시지가 있다면 상태를 변경하지 않음
+          return [...prevMessages, newMessage];
+        });
+      }
+    });
+
+  const { data: newMessageData } = useSubscription(NEW_MESSAGE_SUBSCRIPTION, { variables: { chatid } });
+  if (error) {
+      console.error("Subscription error:", error);
+  }
+  
+  React.useEffect(() => {
+    console.log("Received subscription data:", newMessageData); // 새로운 메시지 데이터를 로깅
+    if (newMessageData?.newMessage) {
+      const newMessage = newMessageData.newMessage;
+      console.log('Successfully received a new message:', newMessage); // 새 메시지를 성공적으로 받았을 때 로깅
+  
+      setLocalMessages(prevMessages => {
+        const isDuplicate = prevMessages.some(msg => msg.sendAt === newMessage.sendAt && msg.senderEmail === newMessage.senderEmail);
+        if (isDuplicate) return prevMessages;
+        return [...prevMessages, newMessage];
+      });
+    }
+  }, [newMessageData]);
+    
   const handleSendMessage = async (messageDetails) => {
     console.log({
       chatid: chatid,
@@ -140,7 +222,7 @@ const ChatModal = ({ isOpen, currentemail, markerOwnerEmail, onClose, chatid }) 
   return (
     <div className="chat-modal">
       <p className='chat'>채팅</p>
-      <div className="chat-list">
+      <div className="chat-list" ref={chatListRef}>
         {localMessages.map(message => {
           const isOwner = message.senderEmail === markerOwnerEmail;
           const isMine = message.senderEmail === currentemail;
@@ -148,10 +230,13 @@ const ChatModal = ({ isOpen, currentemail, markerOwnerEmail, onClose, chatid }) 
           return (
             <ChatBubble 
               key={`${message.senderEmail}-${message.sendAt}`} 
-              message={message} 
+              senderEmail={message.senderEmail} 
+              text={message.text}
               isMine={isMine} 
-              isOwner={isOwner} 
+              isOwner={isOwner}
               sendAt={formattedTime}
+              roadAddress={roadAddress}
+              jibunAddress={jibunAddress}
             />
           );
         })}

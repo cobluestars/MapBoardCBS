@@ -4,6 +4,7 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, on
 import { db } from './firebase';
 import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
 import './Auth.css'
+import AlertMessageList from './AlertMessageList';
 
 import { useSelector, useDispatch } from 'react-redux';
 import { resetMessageCount } from '../redux/AlertMessageSlice';
@@ -17,14 +18,26 @@ function Auth() {
     const [showModal, setShowModal] = useState(false); // 모달 창 보여주기/숨기기
     const [contact, setContact] = useState('');  // 연락처
     const [address, setAddress] = useState('');  // 주소
-        
-    const AlertMessage = useSelector(state => state.AlertMessage.value);    //댓글 달릴 경우 알림
+
+    const [isMessageListOpen, setMessageListOpen] = useState(false);
+    const AlertValue = useSelector(state => state.AlertMessage.value);
+    const AlertMessages = useSelector(state => state.AlertMessage.messages);
+    
     const dispatch = useDispatch();
+    
+    const handleAlertMessageClick = () => {
+        handleReset(); // 클릭 시 메시지 카운트를 리셋
+        setMessageListOpen(true);
+    }
+
+    const handleCloseModal = () => {
+        setMessageListOpen(false);
+    }
     
     const handleReset = () => {     //알림 메세지 리셋
       dispatch(resetMessageCount());
     };
-
+    
     // 회원가입 함수
     const signUp = async () => {
         try {
@@ -113,11 +126,26 @@ function Auth() {
                     <span>Logged in as {user.email}</span>
                     <button onClick={signOutUser}>로그아웃</button>
                     <button onClick={() => setShowModal(true)}>회원정보</button>
-                    {AlertMessage && 
-                        <p className='AlertMessage' onClick={handleReset}>
-                        {AlertMessage}
-                        </p>
-                    }
+                        {AlertValue && 
+                            <p className='AlertValue' onClick={handleReset}>
+                            {AlertValue}
+                            </p>
+                        }
+                        {isMessageListOpen && (
+                            <div className="modalBackdrop" onClick={handleCloseModal}>
+                                {/* 클릭 이벤트가 이 div로 전파되지 않도록 함 */}
+                                <div onClick={e => e.stopPropagation()}>
+                                    <AlertMessageList 
+                                        messages={AlertMessages ? AlertMessages.messages : []} 
+                                        // onClickChatRoom={(selectedAlertMessage) => {
+                                        //     // 채팅방을 클릭했을 때의 동작
+                                        // }}
+                                    />
+                                    {/* 필요하다면 모달 닫기 버튼도 추가 */}
+                                </div>
+                            </div>
+                        )}
+                     <button onClick={handleAlertMessageClick}>메시지 리스트</button>
                 </>
             ) : (
                 <>

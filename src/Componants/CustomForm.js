@@ -624,6 +624,8 @@ const CustomForm = ({
               currentemail={currentemail}
               markerOwnerEmail={email}
               chatid={chatid}
+              roadAddress={roadAddress}
+              jibunAddress={jibunAddress}
           />
           <button className='closebutton' onClick={handleClose}>닫기</button>
           </div>
