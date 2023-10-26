@@ -1,0 +1,24 @@
+.messageListModal {
+    width: 500px;
+    height: auto;
+    overflow-y: scroll;
+}
+
+.MessagesList {
+    text-align: center;
+    font-weight: 700;
+    font-size: 16;
+}
+
+.ChatRoomList {
+    display: block;
+    margin-bottom: 100px;
+}
+
+.ChatRoomIndex {
+    display: block; 
+}
+
+.chatbubble {
+    display: block;
+}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useReducer } from 'react';
 import './CustomMenu.css'
 import CustomForm from './CustomForm';
+import { useChatRoom } from './ChatRoomProvider'
 
 //firestore
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, setDoc, deleteField } from 'firebase/firestore';
@@ -50,7 +51,9 @@ const initialState = {
     jibunAddress: null,
     createdAt: null,
     expiryDate: null,
-    chatid: null
+    chatid: null,
+    email: null,
+    currentemail: null
 };
 
 // 액션 타입 정의
@@ -102,7 +105,9 @@ function reducer(state, action) {
 }
 
 const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowindowsRef, markersRef, mapRef, data }) => {
+    const { selectedChatRoom } = useChatRoom();
     const [state, dispatch] = useReducer(reducer, initialState);
+
     const [formData, setFormData] = useState(initialState.formState);
     const tempMarkerPosition = useRef(null);
     const tempMarkerRef = useRef(null);
@@ -121,7 +126,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
     const [editingMarkerId, setEditingMarkerId] = useState(null);
     const [formPosition, setFormPosition] = useState({ left: 0, top: 0 });
 
-    //검색 기능
+    /** 검색 기능 */
     
     // CustomMenu 컴포넌트
     const customMenuMarkersRef = useRef([]);
@@ -285,7 +290,7 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
     if (user) {
         console.log(user.email);
     } else {
-        console.log("User is not logged in.");
+        console.log("User is not logged in...");
     }    
 
     const [showEditFeatures, setShowEditFeatures] = useState(false);
@@ -493,6 +498,32 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
             console.error('Error:', error);
         }
     };
+
+    useEffect(() => {
+        // 메세지 리스트에서 해당 채팅룸을 가진 마커로 이동
+        if (selectedChatRoom && selectedChatRoom.chatid) {
+            const matchingMarker = state.markers.find(marker => marker.chatid === selectedChatRoom.chatid);
+            if (matchingMarker && mapRef.current) {
+                // 마커 위치로 지도 중심 이동
+                mapRef.current.panTo(new window.kakao.maps.LatLng(matchingMarker.position.lat, matchingMarker.position.lng));                
+
+                // 이전에 클릭된 마커가 있다면 이미지를 원래대로 변경
+                if (prevClickedMarker) {
+                    prevClickedMarker.setImage(originalMarkerImage);
+                }
+                
+                // 현재 선택된 마커의 이미지를 변경
+                matchingMarker.markerObject.setImage(clickedMarkerImage);
+
+                // 이전 클릭된 마커 업데이트
+                prevClickedMarker = matchingMarker.markerObject;
+
+                dispatch({
+                    type: actionTypes.TOGGLE_FORM,
+                });
+            }
+        }
+    }, [selectedChatRoom]);
 
     const { kakao } = window;
 
@@ -1124,7 +1155,6 @@ const CustomMenu = ({ customData, setCustomData, setIsSettingPin, places, infowi
                 jibunAddress={formData.jibunAddress}
                 createdAt={formData.createdAt}
                 email={formData.email}
-                currentemail={formData.currentemail}
                 initialMode="register"
                 markerId={editingMarkerId}
                 onDelete={handleDelete}

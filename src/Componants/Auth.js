@@ -9,6 +9,9 @@ import AlertMessageList from './AlertMessageList';
 import { useSelector, useDispatch } from 'react-redux';
 import { resetMessageCount } from '../redux/AlertMessageSlice';
 
+/**알림 메세지 로직을 Redux를 통해 적절한 컴포넌트에 전달, ChatModal컴포넌트가 렌더링되지 않아도 알림 메세지 수신 가능 */
+import { useNewMessageSubscription } from './useNewMessageSubscription';
+
 function Auth() {
     // 회원가입/로그인/로그아웃
     const [user, setUser] = useState(null);
@@ -25,6 +28,15 @@ function Auth() {
     
     const dispatch = useDispatch();
     
+    /**알림 메세지 로직을 Redux를 통해 적절한 컴포넌트에 전달, ChatModal컴포넌트가 렌더링되지 않아도 알림 메세지 수신 가능 */
+    const currentemail = useSelector(state => state.chat.Currentemail);
+    const chatid = useSelector(state => state.chat.chatid);
+    const roadAddress = useSelector(state => state.chat.roadAddress);
+    const jibunAddress = useSelector(state => state.chat.jibunAddress);
+  
+    useNewMessageSubscription(chatid, currentemail, roadAddress, jibunAddress);
+    /**알림 메세지 로직을 Redux를 통해 적절한 컴포넌트에 전달, ChatModal컴포넌트가 렌더링되지 않아도 알림 메세지 수신 가능 */
+
     const handleAlertMessageClick = () => {
         handleReset(); // 클릭 시 메시지 카운트를 리셋
         setMessageListOpen(true);
@@ -127,7 +139,7 @@ function Auth() {
                     <button onClick={signOutUser}>로그아웃</button>
                     <button onClick={() => setShowModal(true)}>회원정보</button>
                         {AlertValue && 
-                            <p className='AlertValue' onClick={handleReset}>
+                            <p className='AlertValue' onClick={handleAlertMessageClick}>
                             {AlertValue}
                             </p>
                         }

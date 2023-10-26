@@ -4,7 +4,21 @@ import KakaoMap from './KakaoMap';
 import CustomMenu from './CustomMenu';
 import { useCallback } from 'react';
 
+/**알림 메세지 로직을 Redux를 통해 앱 최상단에 전달, ChatModal컴포넌트가 렌더링되지 않아도 알림 메세지 수신 가능 */
+// import { useSelector } from 'react-redux';
+// import { useNewMessageSubscription } from './useNewMessageSubscription';
+
 function Kakao(props) {
+
+    //redux
+    // const currentemail = useSelector(state => state.chat.Currentemail);
+    // const chatid = useSelector(state => state.chat.chatid);
+    // const roadAddress = useSelector(state => state.chat.roadAddress);
+    // const jibunAddress = useSelector(state => state.chat.jibunAddress);
+  
+    // useNewMessageSubscription(chatid, currentemail, roadAddress, jibunAddress);
+    //redux  
+
     const [places, setPlaces] = useState([]);
     const [keyword, setKeyword] = useState("이태원 맛집");
 

@@ -26,10 +26,9 @@ const CustomForm = ({
   roadAddress,
   jibunAddress,
   createdAt,
-  email,
-  currentemail
+  email
 }) => {
-
+  
   const initialState = {
     title: "",
     content: "",
@@ -621,7 +620,6 @@ const CustomForm = ({
           <ChatModal 
               isOpen={isChatModalOpen} 
               onClose={handleChatModalClose}
-              currentemail={currentemail}
               markerOwnerEmail={email}
               chatid={chatid}
               roadAddress={roadAddress}

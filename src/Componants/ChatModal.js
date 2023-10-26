@@ -7,10 +7,13 @@ import { WebSocketLink } from "@apollo/client/link/ws";
 import { DateTime } from 'luxon';   //신뢰할 만한 타임스탬프
 
 import { useDispatch } from 'react-redux';
-import { addNewAlertMessage } from '../redux/AlertMessageSlice';
+import { setChatId, setCurrentemail, setRoadAddress, setJibunAddress } from '../redux/ChatSlice';
 
 import { ApolloClient, InMemoryCache, split, HttpLink } from '@apollo/client';
 import { getMainDefinition } from '@apollo/client/utilities';
+
+import { getAuth } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const httpLink = new HttpLink({
   uri: 'http://localhost:4000/graphql', // GraphQL 서버 http endpoint
@@ -110,7 +113,50 @@ function ChatInput({ onSendMessage, currentemail }) {
   );
 }
 
-const ChatModal = ({ isOpen, currentemail, markerOwnerEmail, onClose, chatid, roadAddress, jibunAddress }) => {
+const ChatModal = ({ isOpen, markerOwnerEmail, onClose, chatid, roadAddress, jibunAddress }) => {
+
+  /* currentemail prop가 자꾸 받아지다 안 받아지다 해서 짜증나서 그냥 갖다 붙일 거다. */
+  // user 상태와 setUser 함수 정의
+  const auth = getAuth();
+
+  const [user, setUser] = React.useState(null);
+
+  // Redux를 위한 dispatch 함수를 가져옴
+  const dispatch = useDispatch();
+
+  React.useEffect(() => {
+    // 인증 상태가 변경될 때마다...
+    const unsubscribe = onAuthStateChanged(auth, currentUser => {
+        if (currentUser) {
+            setUser({
+                email: currentUser.email,
+                uid: currentUser.uid,
+            });
+            // Redux store에 현재 유저의 이메일을 업데이트
+            dispatch(setCurrentemail(currentUser.email));
+        } else {
+            setUser(null);
+            // 로그아웃 상태일 때 Redux store의 이메일을 초기화
+            dispatch(setCurrentemail(null));
+        }
+    });
+    // effect 종료 시, 구독을 취소
+    return () => unsubscribe();
+  }, [auth, dispatch]);
+
+  if (user) {
+    console.log(user.email);
+  } else {
+    console.log('Logout')
+  };
+  /* 말리지 마 */
+
+  // prop으로 받은 값들을 Redux store에 저장
+  React.useEffect(() => {
+    dispatch(setChatId(chatid));
+    dispatch(setRoadAddress(roadAddress));
+    dispatch(setJibunAddress(jibunAddress));
+  }, [chatid, roadAddress, jibunAddress, dispatch]);
 
   const { data, loading, error } = useQuery(GET_MESSAGES, {
     variables: { chatid },
@@ -118,8 +164,12 @@ const ChatModal = ({ isOpen, currentemail, markerOwnerEmail, onClose, chatid, ro
   });
 
   const [localMessages, setLocalMessages] = React.useState([]);
+  const [newMessages, setNewMessages] = React.useState([]);
+
   React.useEffect(() => {
-    setLocalMessages(data?.chatrooms[0]?.messages || []);
+    // ChatModal 컴포넌트가 마운트될 때, 초기 메시지 목록을 가져옴
+    const initialMessages = data?.chatrooms[0]?.messages || [];
+    setLocalMessages(initialMessages);
   }, [data]);
 
   const chatListRef = React.useRef(null);
@@ -134,32 +184,25 @@ const ChatModal = ({ isOpen, currentemail, markerOwnerEmail, onClose, chatid, ro
     scrollToBottom();
   }, [localMessages]);
 
-  const dispatch = useDispatch();
-
   const [sendMessage] = useMutation(SEND_MESSAGE, {
-      onCompleted: (newMessageData) => {
-        const newMessage = newMessageData.addMessage;
-
-        // 메시지가 내 메시지가 아니면서 모든 값이 있을 경우 알림 메시지를 추가
-        if (newMessage.senderEmail !== currentemail) {
-          dispatch(addNewAlertMessage({
-            senderEmail: newMessage.senderEmail,
-            text: newMessage.text,
-            sendAt: newMessage.sendAt,
-            roadAddress,
-            jibunAddress
-          }));
-        }
+    onCompleted: (newMessageData) => {
+      const newMessage = newMessageData.addMessage;
   
-        setLocalMessages(prevMessages => {
-          const isDuplicate = prevMessages.some(msg => msg.sendAt === newMessage.sendAt && msg.senderEmail === newMessage.senderEmail);
-          if (isDuplicate) return prevMessages;  // 중복 메시지가 있다면 상태를 변경하지 않음
-          return [...prevMessages, newMessage];
-        });
-      }
-    });
+      setLocalMessages(prevMessages => {
+        const isDuplicate = prevMessages.some(msg => msg.sendAt === newMessage.sendAt && msg.senderEmail === newMessage.senderEmail);
+        if (isDuplicate) return prevMessages;  // 중복 메시지가 있다면 상태를 변경하지 않음
+        const updatedMessages = [...prevMessages, newMessage];
+        console.log('Updated local messages:', updatedMessages);
+        return updatedMessages;
+      });
+    },
+    onError: (error) => {
+      console.error('Error sending message:', error);
+    }
+  });  
 
   const { data: newMessageData } = useSubscription(NEW_MESSAGE_SUBSCRIPTION, { variables: { chatid } });
+  
   if (error) {
       console.error("Subscription error:", error);
   }
@@ -170,23 +213,19 @@ const ChatModal = ({ isOpen, currentemail, markerOwnerEmail, onClose, chatid, ro
       const newMessage = newMessageData.newMessage;
       console.log('Successfully received a new message:', newMessage); // 새 메시지를 성공적으로 받았을 때 로깅
   
+      // localMessages에 메시지 추가
       setLocalMessages(prevMessages => {
-        const isDuplicate = prevMessages.some(msg => msg.sendAt === newMessage.sendAt && msg.senderEmail === newMessage.senderEmail);
+        const isDuplicate = prevMessages.some(msg => 
+          msg.sendAt === newMessage.sendAt && 
+          msg.senderEmail === newMessage.senderEmail && 
+          msg.text === newMessage.text);
         if (isDuplicate) return prevMessages;
         return [...prevMessages, newMessage];
       });
     }
   }, [newMessageData]);
     
-  const handleSendMessage = async (messageDetails) => {
-    console.log({
-      chatid: chatid,
-      message: {
-        senderEmail: messageDetails.senderEmail,
-        text: messageDetails.text,
-        sendAt: messageDetails.sendAt
-      }
-    });    
+  const handleSendMessage = async (messageDetails) => {    
     try {
       await sendMessage({
         variables: {
@@ -225,11 +264,12 @@ const ChatModal = ({ isOpen, currentemail, markerOwnerEmail, onClose, chatid, ro
       <div className="chat-list" ref={chatListRef}>
         {localMessages.map(message => {
           const isOwner = message.senderEmail === markerOwnerEmail;
-          const isMine = message.senderEmail === currentemail;
+          const isMine = message.senderEmail === user.email;
           const formattedTime = formatDate(message.sendAt);
           return (
             <ChatBubble 
-              key={`${message.senderEmail}-${message.sendAt}`} 
+              key={`${message.senderEmail}-${message.sendAt}`}
+              chatid={chatid} 
               senderEmail={message.senderEmail} 
               text={message.text}
               isMine={isMine} 
@@ -244,7 +284,7 @@ const ChatModal = ({ isOpen, currentemail, markerOwnerEmail, onClose, chatid, ro
       <div className='chat-bottom'>
         <ChatInput 
           onSendMessage={handleSendMessage}
-          currentemail={currentemail}
+          currentemail={user && user.email}
         />
         <button className='closebutton1' onClick={onClose}>닫기</button>
       </div>
